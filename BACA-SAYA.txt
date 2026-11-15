@@ -1,0 +1,18 @@
+RUANG OSCE APOTEKER - paket aplikasi (PWA) untuk Android, iOS, Windows
+Versi: literatur di meja, suara Indonesia, timer mencekam, kasus diperpanjang
+
+Cara online-kan (gratis):
+1. Buka https://app.netlify.com/drop
+2. Seret seluruh folder RUANG-OSCE-PWA (termasuk subfolder "addons" dan "lit") ke halaman tersebut.
+3. Buka link yang diberikan di HP/PC:
+   - Android/Chrome & Windows/Edge: menu > "Instal aplikasi"
+   - iPhone/Safari: Bagikan > "Tambah ke Layar Utama"
+
+Agar suara Bahasa Indonesia terdengar alami:
+- Windows: buka game di Microsoft Edge (suara "Microsoft Ardi/Gadis Online (Natural)").
+- Android: Setelan > Sistem > Bahasa > Output text-to-speech > Mesin Google > unduh Bahasa Indonesia.
+- iPhone/iPad: Setelan > Aksesibilitas > Konten Lisan > Suara > Indonesia > Damayanti (Ditingkatkan).
+Lalu di game: tombol gear (Atur suara) > pilih suara pasien & pengawas.
+
+Catatan: folder "lit" berisi salinan halaman Farmakope Indonesia Edisi VI.
+Pastikan izin penggunaannya sebelum game ini dijual.

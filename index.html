@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14232a">
+<title>Simulasi OSCE Apoteker</title>
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: kanvas 3D layar penuh; HUD atas, gelembung dialog melayang, panel tugas bawah seperti lembar kerja */
+  --ink:#14232a; --paper:#fbfcfb; --muted:#5b6b73; --line:#d9e1e3; --accent:#0b7a75; --accent-soft:#e2f2f1;
+  --ok:#1f8a4c; --bad:#c2410c; --warn:#b7791f;
+  --font:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--ink);font-family:var(--font);color:var(--ink);-webkit-tap-highlight-color:transparent}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+h2{margin:0;font-size:21px;font-weight:800;line-height:1.25;text-wrap:balance}
+h3{margin:0;font-size:16px}
+p{margin:0}
+button{font:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+.small{font-size:13px}.muted{color:var(--muted)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--accent);font-weight:600}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{border:1px solid var(--line);background:#fff;color:var(--ink);padding:10px 16px;border-radius:10px;font-weight:700;font-size:14px}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.link{background:none;border:0;color:var(--accent);font-weight:700;padding:4px 0;text-decoration:underline;justify-self:start}
+/* HUD */
+#hud{position:fixed;top:max(10px,env(safe-area-inset-top));left:10px;right:10px;display:flex;gap:8px;align-items:center;z-index:5;pointer-events:none}
+#hud>*{pointer-events:auto}
+.hudbox{background:rgba(20,35,42,.88);color:#fff;border-radius:12px;padding:8px 12px;display:flex;gap:12px;align-items:center;min-width:0}
+#hudTitle{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hudStep{font-size:12px;opacity:.75;white-space:nowrap}
+#hudTime{font-family:var(--mono);font-size:20px;font-variant-numeric:tabular-nums}
+#hudTime.warn{color:#ffb38a}
+#hudExit{margin-left:auto;background:rgba(255,255,255,.95)}
+#brandTag{position:fixed;top:max(10px,env(safe-area-inset-top));left:12px;z-index:4;color:var(--ink);background:rgba(255,255,255,.85);padding:6px 10px;border-radius:10px;font-weight:800;font-size:13px}
+#hud:not([hidden])~#brandTag{display:none}
+#hint{position:fixed;left:50%;transform:translateX(-50%);top:calc(max(10px,env(safe-area-inset-top)) + 54px);background:rgba(20,35,42,.85);color:#fff;padding:7px 14px;border-radius:99px;font-size:13px;z-index:4;max-width:calc(100% - 24px);text-align:center}
+/* Panel tugas */
+#panel{position:fixed;left:50%;transform:translateX(-50%);bottom:max(10px,env(safe-area-inset-bottom));width:min(640px,calc(100% - 20px));max-height:46vh;overflow:auto;background:var(--paper);border-radius:16px;padding:16px;box-shadow:0 10px 40px rgba(0,0,0,.25);z-index:5;display:grid;gap:12px;border-top:4px solid var(--accent)}
+.ph{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.prompt{font-weight:700;font-size:15.5px;line-height:1.45}
+.opts{display:grid;gap:8px}
+.opt{display:flex;gap:10px;align-items:flex-start;text-align:left;border:1px solid var(--line);background:#fff;padding:11px 13px;border-radius:10px;font-size:14px;line-height:1.45;color:var(--ink)}
+.opt:hover:not(:disabled){border-color:var(--accent)}
+.opt.chosen{border-color:var(--accent);background:var(--accent-soft);font-weight:600}
+.opt:disabled:not(.chosen){opacity:.55}
+.chk input{margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex:none}
+#num{font:inherit;font-size:17px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;width:140px;font-family:var(--mono)}
+.done{background:#e3f4ea;color:#14532d;border-radius:10px;padding:10px 12px;font-size:14px;font-weight:600}
+.list{display:grid;gap:8px}
+.li{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fff}
+.vbtn{display:flex;gap:10px;align-items:center;background:none;border:0;text-align:left;padding:0;color:var(--ink);font-size:14px}
+.vbtn canvas{border-radius:8px;border:1px solid var(--line)}
+.sw{width:16px;height:16px;border-radius:4px;flex:none}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 11px;font-size:13px;font-weight:700;color:var(--muted)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--accent);color:#fff}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chip{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px;display:grid;gap:2px;text-align:left;color:var(--ink);font-size:13px}
+.chip b{font-size:14px}.chip span{color:var(--muted);font-size:12px}
+.chip em{font-style:normal;font-weight:800;font-size:12px}.chip em.ok{color:var(--ok)}.chip em.bad{color:var(--bad)}
+/* Bubble */
+#bubble{position:fixed;z-index:4;transform:translate(-50%,-100%);background:#fff;border-radius:16px;padding:10px 14px;max-width:min(330px,80vw);box-shadow:0 8px 24px rgba(0,0,0,.18);font-size:14.5px;line-height:1.45;pointer-events:none}
+#bubble b{display:block;font-size:11.5px;color:var(--accent);font-family:var(--mono);margin-bottom:2px}
+#bubble::after{content:"";position:absolute;left:50%;bottom:-9px;transform:translateX(-50%);border:10px solid transparent;border-bottom:0;border-top-color:#fff}
+/* Modal */
+#modal{position:fixed;inset:0;background:rgba(12,22,26,.55);display:grid;place-items:center;padding:14px;z-index:10}
+#modalBody{background:var(--paper);border-radius:16px;padding:20px;width:min(560px,100%);max-height:88vh;overflow:auto;display:grid;gap:12px}
+.sheet{display:grid;gap:8px;font-size:14.5px;line-height:1.55;background:#fffdf3;border:1px solid #eadfb8;border-radius:10px;padding:14px}
+.sheet ol{margin:0;padding-left:20px;display:grid;gap:3px}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;vertical-align:top;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{width:32%;color:var(--muted);font-weight:700;font-size:12.5px}
+.vvmbig{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.vvmbig canvas{width:120px;height:120px;border-radius:12px;border:1px solid var(--line)}
+.score{display:flex;gap:12px;align-items:center}
+.score b{font-size:44px;font-weight:800;font-variant-numeric:tabular-nums}
+.pill{font-size:12.5px;font-weight:800;padding:4px 10px;border-radius:99px}
+.pill.ok{background:#e3f4ea;color:var(--ok)}.pill.bad{background:#fdece3;color:var(--bad)}
+.check{display:grid;gap:8px}
+.ci{display:flex;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+.ci>div{display:grid;gap:3px}
+.mk{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:800;flex:none;color:#fff}
+.ci.y .mk{background:var(--ok)}.ci.p .mk{background:var(--warn)}.ci.n .mk{background:var(--bad)}
+/* Intro */
+#intro{position:fixed;inset:0;z-index:20;display:grid;place-items:center;padding:16px;background:linear-gradient(180deg,rgba(20,35,42,.55),rgba(20,35,42,.88))}
+.intro{background:var(--paper);border-radius:20px;padding:24px;width:min(520px,100%);display:grid;gap:14px}
+.intro h1{margin:0;font-size:30px;font-weight:800;letter-spacing:-.01em}
+.steps3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.steps3 div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;font-size:12.5px;display:grid;gap:4px}
+.steps3 b{font-family:var(--mono);color:var(--accent);font-size:12px}
+
+.tcol{display:grid;line-height:1.05}
+#hudLabel{font-size:10px;letter-spacing:.08em;opacity:.7;font-family:var(--mono)}
+#hudTime.pulse{transform:scale(1.15);transition:transform .15s}
+.hudr{margin-left:auto;display:flex;gap:6px;align-items:center}
+.ibtn{width:38px;height:38px;border-radius:10px;border:0;background:rgba(255,255,255,.95);font-size:16px}
+.ibtn[aria-pressed="false"]{opacity:.45;text-decoration:line-through}
+#hudExit{margin-left:0}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode{text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px;display:grid;gap:4px;color:var(--ink)}
+.mode span{font-size:12.5px;color:var(--muted)}
+.mode[aria-pressed="true"]{border:2px solid var(--accent);background:var(--accent-soft)}
+.tog{border:1px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font-weight:700;font-size:12.5px;color:var(--ink)}
+.tog[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.readhead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.readt{font-family:var(--mono);font-size:26px;font-weight:600;background:var(--ink);color:#fff;border-radius:10px;padding:4px 12px;font-variant-numeric:tabular-nums}
+.readt.warn{background:var(--bad)}
+.hintrow{display:grid;gap:6px}
+.hintbox{background:#fff7e0;border:1px solid #f0d58a;border-radius:10px;padding:10px 12px;font-size:14px}
+.tag{font-size:11px;font-weight:700;background:#fff7e0;color:var(--warn);border-radius:6px;padding:1px 6px;margin-left:4px}
+.refs{margin:6px 0 0;padding-left:18px;display:grid;gap:4px;font-size:12.5px;line-height:1.45}
+.refs a{color:var(--accent)}
+details summary{cursor:pointer;color:var(--accent)}
+.chip.off{opacity:.55}
+.opt .k{font-family:var(--mono);font-weight:600;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;background:#eef2f3;flex:none;font-size:12px}
+.unit{font-weight:700}
+.chips{grid-template-columns:repeat(5,1fr)}
+@media (max-width:760px){.chips{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:520px){.modes{grid-template-columns:1fr} .ibtn{width:34px;height:34px}}
+
+#vig{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:0;background:radial-gradient(ellipse at center,transparent 45%,rgba(160,0,0,.55) 100%);transition:opacity .4s}
+#vig.on{animation:vigp 1s infinite}
+@keyframes vigp{0%{opacity:.25}15%{opacity:.95}60%{opacity:.4}100%{opacity:.25}}
+#banner{position:fixed;left:50%;top:calc(max(10px,env(safe-area-inset-top)) + 64px);transform:translateX(-50%);z-index:9;background:#14232a;color:#fff;font-weight:800;font-size:18px;padding:12px 22px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+#banner.warn,#banner{border:2px solid #f0a35a}
+#hudTime.warn3{color:#ffd36b}
+#hudTime.warn{color:#ff9b73}
+.readt.pulse,#hudTime.pulse{transform:scale(1.18);transition:transform .15s}
+.ibtn.lit{width:auto;padding:0 12px;font-weight:700;font-size:14px;display:flex;gap:6px;align-items:center}
+#lit{position:fixed;inset:0;z-index:12;background:#2b3236;display:grid;grid-template-rows:auto auto 1fr}
+.litbar{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:#14232a;color:#fff}
+.litbar .small{opacity:.75}
+.litctl{display:flex;gap:6px;align-items:center}
+.litctl .ibtn{font-size:18px;font-weight:800}
+.litctl .ibtn:disabled{opacity:.35}
+#litNo{font-family:var(--mono);font-size:13px;min-width:70px;text-align:center}
+.litlist{display:flex;gap:6px;padding:8px 12px;background:#1d2a30;overflow-x:auto}
+.litlist button{border:0;border-radius:8px;padding:5px 12px;font-weight:700;background:#33434a;color:#fff}
+.litlist button.on{background:#f4f1e6;color:#14232a}
+.litpage{overflow:auto;padding:14px;display:block;text-align:center;-webkit-overflow-scrolling:touch}
+.litpage img{max-width:none;background:#fff;box-shadow:0 8px 30px rgba(0,0,0,.4);display:inline-block}
+.paper{display:inline-block;text-align:left;background:#fbfaf4;color:#1b1b1b;width:min(760px,100%);padding:28px 30px;box-shadow:0 8px 30px rgba(0,0,0,.4);font-family:"Times New Roman",Georgia,serif;line-height:1.5}
+.paper h4{font-size:1.15em;margin:.2em 0 .6em;text-transform:uppercase;letter-spacing:.02em}
+.paper p,.paper li{margin:.4em 0}
+.paper .src{font-family:var(--font);font-size:.75em;color:#5b6b73;border-top:1px solid #ddd;padding-top:8px;margin-top:16px}
+.lt{border-collapse:collapse;width:100%;margin:.4em 0 1em}
+.lt th,.lt td{border:1px solid #9aa;padding:5px 7px;vertical-align:top;font-size:.92em;text-align:left;width:auto;color:#1b1b1b}
+.lt th{background:#e8e6dc}
+.lt tr.sec td{background:#f0eee4;font-weight:700;letter-spacing:.05em}
+.fld{display:grid;gap:6px;font-weight:700;font-size:14px}
+.fld select,.fld input{font:inherit;font-weight:500;padding:8px;border:1px solid var(--line);border-radius:8px}
+#fade{position:fixed;inset:0;background:#0c1418;opacity:0;pointer-events:none;transition:opacity .35s;z-index:8}
+#fade.on{opacity:1}
+@media (max-width:520px){ .chips,.steps3{grid-template-columns:1fr} #hudStep{display:none} #panel{max-height:52vh} }
+@media (prefers-reduced-motion:reduce){#fade{transition:none}}
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Ruang ujian OSCE 3D"></canvas>
+<div id="hud" hidden>
+  <div class="hudbox"><div class="tcol"><span id="hudLabel">WAKTU UJIAN</span><span id="hudTime">09:00</span></div><div style="min-width:0"><div id="hudTitle"></div><div id="hudStep"></div></div></div>
+  <div class="hudr"><button class="ibtn" data-snd aria-pressed="true" title="Efek suara">🔊</button><button class="ibtn" data-voice aria-pressed="true" title="Suara pasien">🗣</button><button class="ibtn lit" id="hudLit" title="Buka literatur">📖 <span>Literatur</span></button><button class="ibtn" data-voiceset title="Pengaturan suara">⚙</button><button class="ibtn" id="hudHelp" title="Kontrol">?</button><button class="btn" id="hudExit">Keluar</button></div>
+</div>
+<div id="brandTag"><span id="brand">Ruang OSCE</span></div>
+<div id="hint" hidden></div>
+<div id="bubble" hidden><b></b><span></span></div>
+<div id="panel" hidden></div>
+<div id="fade"></div>
+<div id="vig"></div>
+<div id="banner" hidden></div>
+<div id="lit" hidden role="dialog" aria-modal="true" aria-labelledby="litTitle">
+  <div class="litbar"><div><b id="litTitle"></b><div class="small" id="litCap"></div></div>
+    <div class="litctl"><button class="ibtn" id="litZout" title="Perkecil">−</button><button class="ibtn" id="litZin" title="Perbesar">+</button><button class="ibtn" id="litPrev" title="Halaman sebelumnya">‹</button><span id="litNo"></span><button class="ibtn" id="litNext" title="Halaman berikutnya">›</button><button class="btn" id="litClose">Tutup</button></div></div>
+  <div class="litlist" id="litList"></div>
+  <div class="litpage" id="litPage"></div>
+</div>
+<div id="modal" hidden><div id="modalBody" role="dialog" aria-modal="true"></div></div>
+<div id="intro">
+  <div class="intro">
+    <span class="eyebrow">SIMULASI OSCE APOTEKER · UKOMNAS PDPA</span>
+    <h1>Ruang OSCE</h1>
+    <p class="muted">Sirkuit 10 stasiun seperti hari ujian: baca soal 1 menit di depan pintu, masuk saat bel, kerjakan 9 menit dengan literatur di meja, lalu pindah. Setiap jawaban dinilai dengan checklist penguji dan dilengkapi rujukan (FI VI, pedoman, jurnal).</p>
+    <div class="modes" role="group" aria-label="Mode">
+      <button class="mode" data-mode="ujian" aria-pressed="true"><b>Mode Ujian</b><span>Tanpa petunjuk. Masuk saat bel. Seperti hari-H.</span></button>
+      <button class="mode" data-mode="latihan" aria-pressed="false"><b>Mode Latihan</b><span>Ada tombol “Minta petunjuk” di tiap tugas. Boleh masuk lebih awal.</span></button>
+    </div>
+    <div class="row small"><button class="tog" data-snd aria-pressed="true">Efek suara</button><button class="tog" data-voice aria-pressed="true">Suara pasien & pengawas</button><button class="tog" data-voiceset aria-pressed="false">Atur suara Indonesia</button><span class="muted">Gunakan headphone untuk suasana terbaik.</span></div>
+    <div class="row"><button class="btn pri" id="startCircuit">Mulai sirkuit 10 stasiun</button><button class="btn" id="startFree">Pilih stasiun sendiri</button></div>
+    <p class="small muted">Versi ini: 4 stasiun + ruang istirahat siap dimainkan; 5 stasiun lain menyusul.</p>
+  </div>
+</div>
+<script type="importmap">
+{ "imports": { "three": "./three.module.min.js", "three/addons/": "./addons/" } }
+</script>
+<script>
+/* ===== RUANG OSCE — data kasus (ditulis orisinal; rujukan diverifikasi) ===== */
+const GAME = { name: "Ruang OSCE", readSec: 60, workSec: 540, restSec: 540, pass: 70 };
+
+const REF = {
+  fiTabPct: { t: "Farmakope Indonesia Edisi VI (2020). Monografi Tablet Parasetamol, hlm. 1364." },
+  fiDiss: { t: "Farmakope Indonesia Edisi VI (2020). Uji Disolusi <1231>, hlm. 2111–2117 (Tabel Keberterimaan 1)." },
+  fiSpectro: { t: "Farmakope Indonesia Edisi VI (2020). Spektrofotometri dan Hamburan Cahaya <1191>, hlm. 2089–2097." },
+  fiVol: { t: "Farmakope Indonesia Edisi VI (2020). Peralatan Volumetrik <21>, hlm. 1813." },
+  pnpkTB: { t: "Kemenkes RI. KMK No. HK.01.07/MENKES/755/2019 tentang PNPK Tata Laksana Tuberkulosis.", u: "https://keslan.kemkes.go.id/unduhan/fileunduhan_1610422577_801904.pdf" },
+  atsHep: { t: "Saukkonen JJ, et al. An official ATS statement: hepatotoxicity of antituberculosis therapy. Am J Respir Crit Care Med. 2006;174:935–952.", u: "https://doi.org/10.1164/rccm.200510-1666ST" },
+  lens: { t: "Schornack JA. Medications put an interesting spin on tinted lenses. Contact Lens Spectrum. 2003 Jun.", u: "https://www.clspectrum.com/issues/2003/june/therapeutic-topics/" },
+  teach: { t: "Talevski J, et al. Teach-back: a systematic review of implementation and impacts. PLoS One. 2020;15(4):e0231350.", u: "https://doi.org/10.1371/journal.pone.0231350" },
+  pmk12: { t: "Permenkes RI No. 12 Tahun 2017 tentang Penyelenggaraan Imunisasi.", u: "https://ampeid.org/static/963389c023ce90910e7bb514d55156bb/IDN_Permenkes%20Nomor%2012%20Tahun%202017..pdf" },
+  whoVVM: { t: "WHO. Vaccine Vial Monitor (VVM): cara membaca & discard point.", u: "https://files.givewell.org/files/DWDA%202009/NewIncentives/WHO_Vaccinevialmonitor_VVM.pdf" },
+  undipVax: { t: "Evaluasi pengelolaan vaksin puskesmas berdasarkan Permenkes 12/2017. Jurnal Kesehatan Masyarakat (e-Journal) Undip.", u: "https://ejournal3.undip.ac.id/index.php/jkm/article/download/22873/20914" },
+  medline: { t: "MedlinePlus (NIH). Rifampin: drug information.", u: "https://medlineplus.gov/druginfo/meds/a682403.html" },
+  drugsRif: { t: "Drugs.com. Rifampin: what should I avoid while using rifampin?", u: "https://www.drugs.com/mtm/rifampin.html" },
+  pmkVVM: { t: "Permenkes RI No. 12 Tahun 2017, Lampiran: penggunaan vaksin berdasarkan VVM & EEFO, hlm. 70–71." },
+  pmkKocok: { t: "Permenkes RI No. 12 Tahun 2017, Lampiran: kualitas vaksin & uji kocok, hlm. 85 dan 122." },
+  pnpkESO: { t: "KMK HK.01.07/MENKES/755/2019 (PNPK TB), Tabel 3.4 Efek samping OAT, hlm. 36–37; pencegahan neuropati, hlm. 35." },
+  fiDissProc: { t: "Farmakope Indonesia Edisi VI (2020). Uji Disolusi <1231>, Prosedur sediaan lepas segera, hlm. 2115." },
+  fiKrom: { t: "Farmakope Indonesia Edisi VI (2020). Kromatografi <931>: faktor ikutan & kesesuaian sistem, hlm. 2037." },
+  kemkesCC: { t: "Kemenkes RI (2017). Pemerintah sediakan rantai dingin (cold chain) untuk menjaga kualitas vaksin.", u: "https://www.kemkes.go.id/id/pemerintah-sediakan-rantai-dingin-cold-chain-menjaga-kualitas-vaksin" }
+};
+
+const LABELS = {
+  fdc: { title: "OAT 4KDT Dewasa", rows: [["Zat aktif", "Rifampisin 150 mg · Isoniazid 75 mg · Pirazinamid 400 mg · Etambutol HCl 275 mg"], ["Bentuk", "Tablet salut selaput, kombinasi dosis tetap"], ["Golongan", "Obat keras · antituberkulosis lini pertama"], ["Pasien ini", "3 tablet sekali sehari (BB 50 kg), fase intensif"], ["Simpan", "Di bawah 30 °C, terlindung cahaya"]] },
+  baku: { title: "Larutan baku parasetamol", rows: [["Zat aktif", "Parasetamol BPFI"], ["Kadar", "10,0 µg/mL dalam media disolusi"], ["Media", "Dapar fosfat pH 5,8"]] },
+  sampel: { title: "Alikot sampel disolusi (tablet 1)", rows: [["Zat aktif", "Parasetamol (tablet 500 mg)"], ["Penyiapan", "Alikot 1,0 mL dari labu disolusi (900 mL), diencerkan dengan media sampai 50,0 mL"], ["Waktu sampling", "Menit ke-30"]] },
+  media: { title: "Dapar fosfat pH 5,8", rows: [["Fungsi", "Media disolusi & pelarut baku"], ["Catatan", "Dipakai juga sebagai blanko"]] },
+  persed: { title: "Larutan uji persediaan", rows: [["Zat aktif", "Parasetamol dari serbuk tablet 500 mg"], ["Isi", "Serbuk setara ±100 mg parasetamol dalam labu tentukur 200 mL"], ["Pelarut", "Fase gerak air–metanol (3:1)"]] },
+  fase: { title: "Fase gerak air–metanol (3:1)", rows: [["Fungsi", "Pelarut & pengencer larutan uji"], ["Catatan", "Disaring dan diawaudarakan"]] },
+  pipet1: { title: "Pipet volume 1 mL", rows: [["Jenis", "Pipet volume (satu tanda), kelas A"], ["Batas kesalahan", "±0,006 mL (FI VI <21>)"]] },
+  labu50: { title: "Labu tentukur 50 mL", rows: [["Jenis", "Labu tentukur kelas A"], ["Batas kesalahan", "±0,05 mL (FI VI <21>)"]] },
+  gelas: { title: "Gelas ukur 10 mL", rows: [["Jenis", "Gelas ukur"], ["Catatan", "Untuk volume perkiraan, bukan untuk pengenceran kuantitatif"]] },
+  mr: { title: "Vaksin MR", rows: [["Zat aktif", "Virus campak & rubella hidup yang dilemahkan"], ["Kemasan", "Vial serbuk 10 dosis + pelarut"], ["Sifat", "Sensitif panas & cahaya"], ["Simpan", "2–8 °C"]] },
+  bcg: { title: "Vaksin BCG", rows: [["Zat aktif", "Mycobacterium bovis hidup yang dilemahkan"], ["Kemasan", "Ampul serbuk 20 dosis + pelarut"], ["Sifat", "Sensitif panas & cahaya"], ["Simpan", "2–8 °C"]] },
+  dpt: { title: "Vaksin DPT-HB-Hib", rows: [["Zat aktif", "Toksoid difteri & tetanus, B. pertussis inaktif, antigen permukaan hepatitis B, konjugat Hib"], ["Kemasan", "Vial suspensi 5 dosis"], ["Sifat", "Sensitif beku"], ["Simpan", "2–8 °C, jangan dibekukan"]] },
+  td: { title: "Vaksin Td", rows: [["Zat aktif", "Toksoid tetanus & difteri (dosis dewasa)"], ["Kemasan", "Vial suspensi 10 dosis"], ["Sifat", "Sensitif beku"], ["Simpan", "2–8 °C, jangan dibekukan"]] }
+};
+
+/* ---------- LITERATUR DI DALAM RUANGAN (seperti OSCE: 4–6 halaman per stasiun) ---------- */
+const LIT = {
+  s1: { title: "Literatur Stasiun 1 · Pedoman TB & informasi obat", pages: [
+    { cap: "PNPK Tata Laksana TB (KMK HK.01.07/MENKES/755/2019) · Tabel 3.4, hlm. 36–37", html: `<h4>Tabel 3.4 Efek samping OAT</h4><table class="lt"><tr><th>Efek samping</th><th>Penyebab</th><th>Penatalaksanaan</th></tr>
+      <tr class="sec"><td colspan="3">BERAT</td></tr>
+      <tr><td>Ruam kulit dengan/tanpa gatal</td><td>Streptomisin, isoniazid, rifampisin, pirazinamid</td><td>Hentikan OAT</td></tr>
+      <tr><td>Tuli</td><td>Streptomisin</td><td>Hentikan streptomisin</td></tr>
+      <tr><td>Pusing, vertigo, nistagmus</td><td>Streptomisin</td><td>Hentikan streptomisin</td></tr>
+      <tr><td>Ikterik tanpa penyakit hepar (hepatitis)</td><td>Streptomisin, isoniazid, rifampisin, pirazinamid</td><td>Hentikan OAT</td></tr>
+      <tr><td>Gangguan penglihatan</td><td>Etambutol</td><td>Hentikan etambutol</td></tr>
+      <tr><td>Syok, purpura, gagal ginjal akut</td><td>Rifampisin</td><td>Hentikan rifampisin</td></tr>
+      <tr class="sec"><td colspan="3">RINGAN</td></tr>
+      <tr><td>Anoreksia, mual, nyeri perut</td><td>Pirazinamid, rifampisin, isoniazid</td><td>Berikan obat dengan sedikit makanan atau menelan OAT sebelum tidur</td></tr>
+      <tr><td>Nyeri sendi</td><td>Isoniazid</td><td>Aspirin/OAINS atau parasetamol</td></tr>
+      <tr><td>Rasa terbakar, kebas, kesemutan di tangan dan kaki</td><td>Isoniazid</td><td>Piridoksin 50–75 mg/hari</td></tr>
+      <tr><td>Rasa mengantuk</td><td>Isoniazid</td><td>Obat dapat diberikan sebelum tidur</td></tr>
+      <tr><td>Air kemih berwarna kemerahan</td><td>Rifampisin</td><td>Pastikan pasien diberitahu sebelum mulai minum obat</td></tr>
+      <tr><td>Sindrom flu</td><td>Rifampisin intermiten</td><td>Ubah pemberian intermiten menjadi setiap hari</td></tr></table>` },
+    { cap: "PNPK Tata Laksana TB · Tabel 3.1 (hlm. 29) & pencegahan neuropati (hlm. 35)", html: `<h4>Tabel 3.1 Dosis OAT lini pertama dewasa (harian)</h4><table class="lt"><tr><th>Obat</th><th>Dosis (mg/kgBB)</th><th>Maksimum</th></tr>
+      <tr><td>Isoniazid (H)</td><td>5 (4–6)</td><td>300 mg</td></tr><tr><td>Rifampisin (R)</td><td>10 (8–12)</td><td>600 mg</td></tr><tr><td>Pirazinamid (Z)</td><td>25 (20–30)</td><td>–</td></tr><tr><td>Etambutol (E)</td><td>15 (15–20)</td><td>–</td></tr><tr><td>Streptomisin (S)</td><td>15 (12–18)</td><td>–</td></tr></table>
+      <p>Paduan kasus baru: fase intensif 2 bulan HRZE, fase lanjutan 4 bulan HR. OAT ditelan secara teratur dan diawasi langsung oleh PMO.</p>
+      <h4>Pencegahan neuropati perifer</h4><p>Pasien dengan risiko neuropati perifer, misalnya ibu hamil, ODHA, dan penderita diabetes melitus, sebaiknya mendapat piridoksin 25 mg/hari bersama OAT.</p>` },
+    { cap: "Informasi obat rifampisin · MedlinePlus (NIH) & Drugs.com", html: `<h4>Rifampisin: informasi untuk pasien</h4><ul>
+      <li>Bila memakai antasida, rifampisin diminum <b>minimal 1 jam sebelum</b> antasida.</li>
+      <li>Rifampisin dapat menimbulkan noda merah permanen pada <b>lensa kontak lunak</b>.</li>
+      <li>Urin, keringat, ludah, dahak, dan air mata dapat berwarna merah-oranye.</li>
+      <li>Hindari minum alkohol karena dapat meningkatkan risiko kerusakan hati.</li>
+      <li>Rifampisin menurunkan efektivitas kontrasepsi hormonal; gunakan metode lain.</li>
+      <li>Beritahu petugas laboratorium bila sedang memakai rifampisin.</li></ul>` },
+    { cap: "Saukkonen JJ, et al. Am J Respir Crit Care Med 2006;174:935–952 (ATS) & informasi obat rifampisin", html: `<h4>Hepatotoksisitas OAT: poin praktis</h4><ul>
+      <li>Isoniazid, rifampisin, dan pirazinamid berpotensi hepatotoksik.</li>
+      <li>Faktor risiko yang dibahas: usia di atas 35 tahun, transaminase awal abnormal, status asetilator, koinfeksi HIV, hepatitis B dan C, serta kofaktor lain.</li>
+      <li>Gejala yang perlu segera dilaporkan: mual-muntah, nyeri perut kanan atas, kulit/mata kuning, urin gelap seperti teh.</li>
+      <li>Bila hepatotoksisitas terdeteksi, terapi dihentikan, dimodifikasi, atau dihentikan sementara sesuai derajat dan komorbiditas.</li></ul>` }
+  ] },
+  s2: { title: "Literatur Stasiun 4 · Farmakope Indonesia Edisi VI", pages: [
+    { cap: "FI VI hlm. 1364 · Tablet Parasetamol (monografi)", img: "lit/fi_1385.jpg" },
+    { cap: "FI VI hlm. 2112 · Uji Disolusi <1231>: Alat 1 & Alat 2", img: "lit/fi_2133.jpg" },
+    { cap: "FI VI hlm. 2115 · Uji Disolusi <1231>: Prosedur sediaan lepas segera", img: "lit/fi_2136.jpg" },
+    { cap: "FI VI hlm. 2117 · Uji Disolusi <1231>: Tabel Keberterimaan 1", img: "lit/fi_2138.jpg" },
+    { cap: "FI VI hlm. 2094 · Spektrofotometri dan Hamburan Cahaya <1191>: Prosedur", img: "lit/fi_2115.jpg" } ] },
+  s5: { title: "Literatur Stasiun 5 · Farmakope Indonesia Edisi VI", pages: [
+    { cap: "FI VI hlm. 1364 · Tablet Parasetamol: Penetapan kadar (KCKT)", img: "lit/fi_1385.jpg" },
+    { cap: "FI VI hlm. 1365 · Tablet Parasetamol (lanjutan)", img: "lit/fi_1386.jpg" },
+    { cap: "FI VI hlm. 1813 · Peralatan Volumetrik <21>", img: "lit/fi_1834.jpg" },
+    { cap: "FI VI hlm. 2037 · Kromatografi <931>: faktor ikutan & kesesuaian sistem", img: "lit/fi_2058.jpg" } ] },
+  s3: { title: "Literatur Stasiun 7 · Pedoman pengelolaan vaksin", pages: [
+    { cap: "Permenkes RI No. 12 Tahun 2017, Lampiran · hlm. 70–71", html: `<h4>Penggunaan vaksin berdasarkan VVM</h4><table class="lt"><tr><th>Kondisi</th><th>Tampilan</th><th>Tindakan</th></tr>
+      <tr><td>A</td><td>Kotak lebih terang dari lingkaran</td><td>Gunakan bila belum kedaluwarsa</td></tr>
+      <tr><td>B</td><td>Kotak mulai gelap, masih lebih terang dari lingkaran</td><td>Gunakan lebih dahulu</td></tr>
+      <tr><td>C</td><td>Kotak sama warna dengan lingkaran</td><td>Jangan digunakan</td></tr>
+      <tr><td>D</td><td>Kotak lebih gelap dari lingkaran</td><td>Jangan digunakan</td></tr></table>
+      <p>Vaksin yang VVM-nya berubah dari A ke B telah lebih banyak terpapar panas sehingga digunakan lebih dahulu walaupun masa kedaluwarsanya lebih panjang. Bila kondisi VVM sama, gunakan yang kedaluwarsanya lebih dekat (EEFO).</p>` },
+    { cap: "Permenkes RI No. 12 Tahun 2017, Lampiran · hlm. 85 & 122", html: `<h4>Kualitas vaksin & uji kocok</h4><ul><li>Vaksin yang digunakan: belum kedaluwarsa, vaksin sensitif beku belum pernah membeku, belum terpapar panas berlebih (VVM), dan belum melewati batas waktu pemakaian.</li>
+      <li>Bila suhu lemari es tercatat di bawah 2 °C, vaksin Hepatitis B, DPT-HB-Hib, DT, IPV, dan Td dicurigai beku; lakukan uji kocok (kecuali IPV).</li>
+      <li>Uji kocok memakai pembanding vaksin dengan jenis dan nomor batch yang sama.</li></ul>
+      <h4>Prosedur uji kocok (shake test)</h4><ol><li>Ambil satu vial dari tiap jenis yang dicurigai, beri label "Tersangka beku".</li><li>Bekukan sengaja satu vial sejenis dan batch sama sampai beku padat, beri label "Dibekukan", lalu cairkan.</li><li>Kocok kedua vial bersamaan, letakkan berdampingan, amati pengendapan.</li><li>Pengendapan "Tersangka beku" <b>lebih lambat</b> dari "Dibekukan" → vaksin dapat digunakan. Pengendapan <b>sama atau lebih cepat</b> → jangan digunakan.</li></ol>` },
+    { cap: "Kemenkes RI (2017) & Jurnal Kesehatan Masyarakat Undip · rantai dingin", html: `<h4>Penggolongan & penempatan di lemari es</h4><table class="lt"><tr><th>Golongan</th><th>Contoh</th><th>Penempatan</th></tr>
+      <tr><td>Sensitif panas</td><td>Polio, BCG, campak/MR</td><td>Dekat evaporator</td></tr>
+      <tr><td>Sensitif beku</td><td>Hepatitis B, DPT-HB-Hib, IPV, DT, Td</td><td>Jauh dari evaporator</td></tr></table>
+      <p>Suhu penyimpanan vaksin di puskesmas 2–8 °C. Suhu lemari es dicatat dua kali sehari pada grafik suhu. Cool pack dipakai untuk vaksin sensitif beku, cold pack untuk vaksin sensitif panas.</p>` } ] }
+};
+
+/* 9 stasiun + 1 istirahat · seimbang 3 pelayanan / 3 pembuatan / 3 distribusi */
+const STATIONS = [
+{ id: "s1", no: 1, area: "Pelayanan", built: true, title: "Konseling efek samping OAT", color: 0x0b7a75, kind: "patient",
+  refs: ["pnpkESO", "pnpkTB", "atsHep", "medline", "lens", "teach"],
+  sheet: `<p><b>Tempat:</b> Apotek Puskesmas Sukamaju, Selasa pukul 10.15.</p>
+  <p>Tn. Hendra Saputra, 42 tahun, BB 50 kg, TB 165 cm, pengemudi ojek daring, peserta BPJS. Didiagnosis TB paru terkonfirmasi bakteriologis, kasus baru, dan sedang menjalani fase intensif 2(HRZE) dengan OAT 4KDT 3 tablet sekali sehari. Hari ini hari ke-12 pengobatan; PMO adalah istrinya.</p>
+  <p><b>Riwayat:</b> DM tipe 2 sejak 3 tahun lalu, terkontrol dengan metformin 2 × 500 mg (GDP terakhir 128 mg/dL). Tekanan darah 124/80 mmHg. SGOT/SGPT awal terapi dalam batas normal. Tidak ada riwayat alergi obat. Ia memakai lensa kontak lunak saat bekerja, sesekali minum alkohol bersama teman, dan membeli sendiri antasida tablet kunyah yang diminum bersamaan dengan OAT setiap pagi karena perih ulu hati.</p>
+  <p><b>Keluhan:</b> Sejak hari ke-3, urinnya berwarna merah-oranye. Ia khawatir ginjalnya rusak dan berencana menghentikan obat. Resep dari dokter belum mencantumkan vitamin B6.</p>
+  <p><b>Tugas:</b></p><ol><li>Buka konseling dan pastikan identitas pasien.</li><li>Gali informasi yang relevan dengan keluhan.</li><li>Identifikasi penyebab dan berikan edukasi yang tepat.</li><li>Identifikasi masalah terkait obat lain dan gaya hidup pasien.</li><li>Rekomendasikan pencegahan efek samping yang belum tertangani.</li><li>Sampaikan tanda bahaya, lalu verifikasi pemahaman pasien.</li></ol><p class="muted">Literatur tersedia di meja.</p>`,
+  steps: [
+    { id: "open", kind: "choice", skill: "Pembukaan & identitas", prompt: "Pasien sudah duduk di depan Anda. Apa yang Anda ucapkan pertama kali?", say0: "Selamat pagi. Maaf, saya agak takut, makanya langsung ke sini.",
+      hint: "Penguji menilai salam, perkenalan diri, dan konfirmasi identitas sebelum masuk ke masalah.",
+      options: [ { t: "Selamat pagi, Pak. Saya apoteker yang bertugas hari ini. Boleh saya tahu nama dan tanggal lahir Bapak, lalu apa yang bisa saya bantu?", ok: true, say: "Saya Hendra Saputra, lahir dua belas Maret delapan puluh empat. Ini soal obat TB saya, Bu." },
+        { t: "Ada keluhan apa, Pak? Langsung saja, antreannya panjang.", ok: false, say: "Eh, iya. Soal obat TB saya." },
+        { t: "Obatnya tetap diminum terus ya, Pak, jangan sampai putus.", ok: false, say: "Iya, tapi saya mau tanya dulu sebentar." } ],
+      why: "Konseling dibuka dengan salam, perkenalan, dan konfirmasi identitas (dua penanda: nama dan tanggal lahir).", refs: ["teach"] },
+    { id: "explore", kind: "multi", pick: 3, skill: "Penggalian informasi", prompt: "Pilih 3 pertanyaan yang paling relevan untuk keluhan dan keselamatan pasien.",
+      hint: "Fokus pada onset dan gejala penyerta, cara pakai seluruh obat, dan skrining efek samping yang berbahaya.",
+      options: [ { t: "Sejak kapan warna urin berubah, dan apakah ada keluhan lain seperti nyeri saat berkemih?", ok: true, say: "Sejak hari ketiga minum obat. Kencingnya lancar, tidak sakit. Cuma warnanya bikin saya takut." },
+        { t: "Bagaimana Bapak minum OAT dan obat lain setiap harinya, termasuk obat yang dibeli sendiri?", ok: true, say: "Tiga tablet OAT pagi sebelum sarapan, bareng obat maag kunyah. Metforminnya pagi dan malam sesudah makan." },
+        { t: "Apakah mata atau kulit Bapak tampak kuning, mual-muntah, atau ada kesemutan di kaki?", ok: true, say: "Mata tidak kuning. Mual sedikit di awal, sekarang sudah tidak. Kaki kadang terasa kesemutan kalau malam." },
+        { t: "Apakah Bapak menggunakan BPJS untuk pengobatan ini?", ok: false, say: "Iya, BPJS. Kenapa memangnya?" },
+        { t: "Apakah orang tua Bapak dulu juga pernah sakit TB?", ok: false, say: "Setahu saya tidak ada." },
+        { t: "Berapa kali Bapak kontrol ke dokter tahun lalu?", ok: false, say: "Wah, saya lupa, mungkin tiga kali." } ],
+      why: "Yang relevan: onset & gejala penyerta, cara pakai seluruh obat (termasuk swamedikasi), dan skrining tanda hepatotoksisitas serta neuropati.", refs: ["pnpkESO", "atsHep"] },
+    { id: "cause", kind: "choice", skill: "Identifikasi penyebab", prompt: "Zat aktif mana yang menyebabkan urin berwarna merah-oranye, dan bagaimana sifat efek ini?", say0: "Jadi warna merah ini dari obat yang mana, ya?",
+      hint: "Lihat Tabel 3.4 pada literatur: efek samping ringan yang berkaitan dengan warna air kemih.",
+      options: [ { t: "Isoniazid; efek ini tanda gangguan ginjal", ok: false, say: "Isoniazid? Jadi ginjal saya bermasalah?" }, { t: "Rifampisin; efek samping ringan dan tidak berbahaya", ok: true, say: "Rifampisin, efeknya ringan. Baik, saya catat." }, { t: "Pirazinamid; efek ringan, tetapi obat perlu dihentikan", ok: false, say: "Pirazinamid ya, berarti harus berhenti?" }, { t: "Etambutol; efek berat yang harus segera dilaporkan", ok: false, say: "Etambutol, efeknya berat?" } ],
+      why: "Rifampisin dan metabolitnya berwarna merah-oranye. PNPK menggolongkan air kemih kemerahan sebagai efek samping ringan; pasien cukup diberi tahu.", refs: ["pnpkESO", "lens"] },
+    { id: "edu", kind: "choice", skill: "Edukasi", prompt: "Edukasi yang paling tepat untuk Tn. Hendra adalah…",
+      hint: "Pertimbangkan rencana pasien menghentikan obat dan kebiasaan memakai lensa kontak.",
+      options: [ { t: "Efek ini tidak berbahaya. OAT tetap diminum setiap hari tanpa putus. Lensa kontak lunak bisa ternoda permanen, jadi sementara gunakan kacamata.", ok: true, say: "Syukurlah! Memang saya pakai lensa kontak. Mulai besok pakai kacamata saja." },
+        { t: "Hentikan OAT tiga hari sampai warna urin normal, lalu lanjutkan lagi.", ok: false, say: "Berhenti dulu tiga hari, ya…" },
+        { t: "Perbanyak minum air lima liter sehari supaya warnanya hilang.", ok: false, say: "Lima liter? Banyak sekali." } ],
+      why: "Menghentikan OAT berisiko gagal terapi dan resistensi. Rifampisin dapat menodai lensa kontak lunak secara permanen.", refs: ["pnpkTB", "medline", "lens"] },
+    { id: "interact", kind: "multi", pick: 2, skill: "Interaksi & gaya hidup", prompt: "Pilih 2 rekomendasi yang tepat terkait obat lain dan kebiasaan Tn. Hendra.",
+      hint: "Ada obat bebas yang diminum bersamaan dengan OAT, dan ada kebiasaan yang menambah beban hati.",
+      options: [ { t: "Beri jeda: antasida diminum minimal 1 jam setelah OAT", ok: true, say: "Oh, jadi obat maagnya jangan barengan. Satu jam setelahnya, ya." }, { t: "Hindari alkohol selama pengobatan karena menambah risiko gangguan hati", ok: true, say: "Baik, saya stop dulu minum-minum dengan teman." }, { t: "Hentikan metformin selama fase intensif", ok: false, say: "Metformin distop? Gula saya bagaimana?" }, { t: "Minum OAT bersama susu agar lambung terlindung", ok: false, say: "Pakai susu ya, bisa saya coba." }, { t: "Jamu boleh diminum bersamaan dengan OAT tanpa jeda", ok: false, say: "Wah, kebetulan istri suka bikin jamu." } ],
+      why: "Antasida menurunkan absorpsi rifampisin: rifampisin diminum ≥1 jam sebelum antasida. Alkohol meningkatkan risiko kerusakan hati. Metformin tetap diperlukan.", refs: ["medline", "drugsRif", "atsHep"] },
+    { id: "b6", kind: "choice", skill: "Pencegahan efek samping", prompt: "Pasien menyebut kakinya kadang kesemutan, dan ia penyandang DM. Resep belum mencantumkan vitamin B6. Tindakan Anda?",
+      hint: "Lihat bagian pencegahan neuropati perifer pada literatur PNPK.",
+      options: [ { t: "Konfirmasi ke dokter: usulkan piridoksin 25 mg/hari bersama OAT, karena pasien DM berisiko neuropati perifer akibat isoniazid", ok: true, say: "Oh, ada vitamin untuk kesemutannya. Terima kasih sudah ditanyakan ke dokter." }, { t: "Tidak perlu tindakan, kesemutan wajar pada pasien DM", ok: false, say: "Oh, berarti biasa saja ya." }, { t: "Sarankan menghentikan isoniazid sampai kesemutan hilang", ok: false, say: "Salah satu obatnya distop?" }, { t: "Berikan vitamin B12 dosis tinggi tanpa konsultasi dokter", ok: false, say: "Vitamin B dua belas, ya." } ],
+      why: "PNPK: pasien berisiko neuropati perifer (termasuk DM) sebaiknya mendapat piridoksin 25 mg/hari. Apoteker mengusulkan ke dokter karena belum ada dalam resep.", refs: ["pnpkESO"] },
+    { id: "danger", kind: "multi", pick: 3, skill: "Tanda bahaya", prompt: "Pilih 3 tanda bahaya yang harus segera dilaporkan ke petugas.",
+      hint: "Kaitkan dengan efek samping berat pada Tabel 3.4: hati, mata, dan reaksi sistemik.",
+      options: [ { t: "Mata atau kulit menjadi kuning, mual-muntah hebat, urin gelap seperti teh", ok: true }, { t: "Penglihatan kabur atau sulit membedakan warna merah dan hijau", ok: true }, { t: "Ruam kulit luas atau gatal-gatal setelah minum obat", ok: true }, { t: "Air mata dan keringat ikut berwarna oranye", ok: false }, { t: "Mengantuk ringan setelah minum obat", ok: false }, { t: "Urin tetap berwarna merah-oranye selama pengobatan", ok: false } ],
+      after: "Baik. Kuning, mata kabur, dan ruam kulit. Kalau ada itu saya langsung ke puskesmas.",
+      why: "Ikterik (hepatotoksisitas), gangguan penglihatan (etambutol), dan ruam kulit termasuk efek samping berat yang memerlukan penghentian obat. Perubahan warna cairan tubuh dan mengantuk tergolong ringan.", refs: ["pnpkESO", "atsHep"] },
+    { id: "verify", kind: "choice", skill: "Verifikasi pemahaman", prompt: "Bagaimana Anda menutup konseling?",
+      hint: "Cara verifikasi yang dinilai penguji adalah meminta pasien menjelaskan ulang dengan kata-katanya sendiri.",
+      options: [ { t: "Agar saya yakin penjelasan saya jelas, boleh Bapak ulangi poin-poin tadi? Setelah itu saya beri nomor apotek bila ada keluhan.", ok: true, say: "Merah di urin itu wajar, obat jangan berhenti, pakai kacamata, obat maag satu jam setelahnya, tidak minum alkohol, nanti ada vitamin B6. Kalau kuning, mata kabur, atau ruam, saya langsung lapor." },
+        { t: "Sudah jelas, ya, Pak? Kalau begitu silakan pulang.", ok: false, say: "Iya, sepertinya jelas." }, { t: "Ini leaflet TB, nanti dibaca sendiri di rumah, ya.", ok: false, say: "Baik, nanti saya baca." } ],
+      why: "Teach-back terbukti efektif meningkatkan pemahaman dan retensi informasi pasien.", refs: ["teach"] } ] },
+
+{ id: "x2", no: 2, area: "Pelayanan", built: false, title: "DRP pasien stroke: analisis SOAP", color: 0x0b7a75 },
+{ id: "x3", no: 3, area: "Pelayanan", built: false, title: "DRP ARV ibu hamil & PIO", color: 0x0b7a75 },
+
+{ id: "s2", no: 4, area: "Pembuatan", built: true, title: "Uji disolusi tablet parasetamol", color: 0x7a5bb5, kind: "lab",
+  refs: ["fiTabPct", "fiDiss", "fiDissProc", "fiSpectro"],
+  sheet: `<p><b>Tempat:</b> Laboratorium Pengawasan Mutu, PT Sehat Farma, Senin pukul 08.00.</p>
+  <p>Bets PCT-2611-04 tablet parasetamol 500 mg (tablet biasa, bukan tablet kunyah; ukuran bets 300.000 tablet) akan diluluskan. Penetapan kadar bets ini dengan KCKT sudah selesai (99,6%). Anda bertugas melakukan uji disolusi tahap S1 terhadap 6 tablet, lalu mengukur jumlah terlarut dengan spektrofotometer UV-Vis yang sudah terkalibrasi bulan lalu.</p>
+  <p><b>Tersedia:</b> alat uji disolusi 6 bejana (tipe 1 dan tipe 2 dapat dipasang), media dapar fosfat pH 5,8 dan HCl 0,1 N, larutan baku Parasetamol BPFI 10,0 µg/mL dalam media, alikot sampel tablet 1 yang telah diencerkan, kuvet kuarsa, kuvet kaca, dan kuvet polistiren 1 cm.</p>
+  <p><b>Tugas:</b></p><ol><li>Siapkan spektrofotometer dan pilih kuvet yang benar.</li><li>Tetapkan kondisi uji disolusi dan titik pengambilan sampel menurut FI VI.</li><li>Tentukan panjang gelombang dan blanko.</li><li>Ukur, lalu hitung % terlarut tablet 1.</li><li>Simpulkan hasil tahap S1 untuk enam tablet.</li></ol><p class="muted">Literatur FI VI tersedia di meja.</p>`,
+  steps: [
+    { id: "power", kind: "action", target: "power", skill: "Persiapan alat", prompt: "Nyalakan spektrofotometer.", done: "Lampu deuterium & tungsten menyala, alat dipanaskan hingga stabil.", hint: "Tombol daya ada di panel depan spektrofotometer.", why: "Alat dinyalakan dan dibiarkan stabil sebelum pengukuran.", refs: ["fiSpectro"] },
+    { id: "cond", kind: "choice", skill: "Kondisi uji disolusi", prompt: "Kondisi uji disolusi untuk bets ini menurut FI VI?",
+      hint: "Monografi membedakan tablet biasa dan tablet kunyah. Perhatikan media, tipe alat, kecepatan, dan waktu.",
+      options: [ { t: "900 mL dapar fosfat pH 5,8 · alat tipe 2 (dayung) 50 rpm · 30 menit · Q = 80%", ok: true }, { t: "900 mL dapar fosfat pH 5,8 · alat tipe 2 75 rpm · 45 menit · Q = 75%", ok: false }, { t: "900 mL HCl 0,1 N · alat tipe 1 (keranjang) 100 rpm · 30 menit · Q = 80%", ok: false }, { t: "500 mL air · alat tipe 2 50 rpm · 60 menit · Q = 75%", ok: false } ],
+      anim: "dissolve", why: "Tablet parasetamol: 900 mL dapar fosfat pH 5,8, alat tipe 2, 50 rpm, 30 menit, Q 80%. Kondisi 75 rpm/45 menit/Q 75% adalah untuk tablet kunyah.", refs: ["fiTabPct", "fiDiss"] },
+    { id: "sampling", kind: "choice", skill: "Pengambilan cuplikan", prompt: "Pada menit ke-30, dari mana alikot diambil?",
+      hint: "Lihat Prosedur sediaan lepas segera pada <1231>.",
+      options: [ { t: "Pertengahan antara permukaan media dan bagian atas dayung, tidak kurang dari 1 cm dari dinding wadah", ok: true }, { t: "Tepat di permukaan media agar tidak mengganggu dayung", ok: false }, { t: "Dari dasar bejana di dekat sisa tablet", ok: false }, { t: "Dekat dinding bejana agar alikot jernih", ok: false } ],
+      why: "FI VI: sampel diambil di daerah pertengahan antara permukaan media dan bagian atas keranjang/dayung, tidak kurang dari 1 cm dari dinding wadah.", refs: ["fiDissProc"] },
+    { id: "cuvette", kind: "choice", skill: "Pemilihan kuvet", prompt: "Pengukuran dilakukan di daerah UV. Kuvet dan cara pegang yang benar?",
+      hint: "Kaca biasa dan polistiren menyerap sinar UV. Sisi mana yang dilewati berkas cahaya?",
+      options: [ { t: "Kuvet kuarsa 1 cm, dipegang pada sisi yang buram", ok: true }, { t: "Kuvet kaca 1 cm, dipegang pada sisi yang bening", ok: false }, { t: "Kuvet polistiren 1 cm, dipegang pada sisi yang buram", ok: false }, { t: "Kuvet kuarsa 1 cm, dipegang pada sisi yang bening", ok: false } ],
+      why: "Daerah UV memerlukan sel kuarsa (silika). Sisi bening adalah jalur cahaya dan tidak boleh tersentuh jari.", refs: ["fiSpectro"] },
+    { id: "scan", kind: "action", target: "baku", skill: "Penentuan λ maks", prompt: "Lakukan scanning larutan baku.", done: "Spektrum baku 200–400 nm tampil di layar alat.", hint: "Ketuk labu berlabel BAKU.", why: "λ maks ditentukan dari scanning larutan baku pada media yang sama.", refs: ["fiTabPct"] },
+    { id: "lambda", kind: "choice", skill: "Penentuan λ maks", prompt: "Lihat spektrum di layar alat. Pada panjang gelombang berapa serapan diukur?",
+      hint: "Monografi menyebut panjang gelombang serapan maksimum lebih kurang… Bandingkan dengan puncak di layar.",
+      options: [ { t: "243 nm", ok: true }, { t: "257 nm", ok: false }, { t: "280 nm", ok: false }, { t: "320 nm", ok: false } ],
+      why: "Dalam dapar fosfat pH 5,8, serapan maksimum parasetamol ±243 nm (FI VI). Angka 257 nm berlaku untuk parasetamol dalam NaOH 0,1 N.", refs: ["fiTabPct"] },
+    { id: "blank", kind: "choice", skill: "Blanko", prompt: "Larutan apa yang dipakai sebagai blanko?",
+      hint: "Blanko harus mengoreksi serapan dari pelarut yang sama dengan sampel.",
+      options: [ { t: "Akuades", ok: false }, { t: "Dapar fosfat pH 5,8 (media disolusi)", ok: true }, { t: "Metanol", ok: false }, { t: "Larutan baku parasetamol", ok: false } ],
+      why: "Blanko = media yang sama dengan sampel dan baku.", refs: ["fiSpectro"] },
+    { id: "measure", kind: "action", target: "sampel", skill: "Pengukuran", prompt: "Ukur absorbansi baku dan alikot sampel tablet 1.", done: "A baku (10,0 µg/mL) = 0,652 · A sampel = 0,654 (λ 243 nm).", hint: "Ketuk labu berlabel SAMPEL.", why: "Baku dan sampel diukur pada λ, sel, dan blanko yang sama.", refs: ["fiTabPct"] },
+    { id: "calc", kind: "input", skill: "Perhitungan % terlarut", unit: "%", min: 89.9, max: 90.7, answer: "90,3%",
+      prompt: "A baku 0,652 (10,0 µg/mL), A sampel 0,654. Alikot 1,0 mL diencerkan dengan media menjadi 50,0 mL. Volume media 900 mL, etiket 500 mg. Berapa % parasetamol terlarut dari etiket?",
+      hint: "Hitung C sampel dari perbandingan absorbansi, kalikan faktor pengenceran, lalu kalikan volume media. Bandingkan dengan 500 mg.",
+      why: "C = (0,654 ÷ 0,652) × 10,0 = 10,03 µg/mL → × 50 = 501,5 µg/mL → × 900 mL = 451,4 mg → 451,4 ÷ 500 = 90,3%.", refs: ["fiTabPct", "fiDiss"] },
+    { id: "conclude", kind: "choice", skill: "Kesimpulan tahap S1", prompt: "Hasil 6 tablet: 90,3% · 88,6% · 92,1% · 86,0% · 91,4% · 89,7%. Kesimpulan?",
+      hint: "Kriteria S1 berlaku untuk setiap unit, bukan rata-rata. Hitung Q + 5% dengan Q dari monografi.",
+      options: [ { t: "Memenuhi syarat tahap S1, karena setiap unit ≥ Q + 5% (85%)", ok: true }, { t: "Lanjut ke tahap S2, karena ada unit di bawah 90%", ok: false }, { t: "Tidak memenuhi syarat, karena rata-rata < Q + 10%", ok: false }, { t: "Memenuhi syarat karena rata-rata ≥ Q (80%), tanpa melihat tiap unit", ok: false } ],
+      why: "S1: tiap unit tidak kurang dari Q + 5% = 85%. Nilai terendah 86,0%, sehingga bets memenuhi syarat pada tahap S1.", refs: ["fiDiss"] } ] },
+
+{ id: "s5", no: 5, area: "Pembuatan", built: true, title: "Pengenceran & penetapan kadar KCKT", color: 0x7a5bb5, kind: "lab",
+  refs: ["fiTabPct", "fiVol", "fiKrom"],
+  sheet: `<p><b>Tempat:</b> Laboratorium Pengawasan Mutu, PT Sehat Farma.</p>
+  <p>Anda menetapkan kadar bets PCT-2611-04 tablet parasetamol 500 mg secara KCKT menurut FI VI. Dua puluh tablet telah ditimbang dan diserbukkan; bobot rata-rata 600,0 mg per tablet. Timbangan analitik, labu tentukur 50, 100, dan 200 mL, pipet volume 1, 2, dan 5 mL, pipet ukur 10 mL, gelas ukur 10 mL, pipet tetes, fase gerak air–metanol (3:1), penyaring membran, dan Parasetamol BPFI tersedia.</p>
+  <p><b>Larutan baku</b> telah dibuat oleh analis lain: 25,4 mg Parasetamol BPFI dilarutkan dalam fase gerak sampai 50,0 mL, kemudian 2,0 mL larutan ini diencerkan dengan fase gerak sampai 100,0 mL.</p>
+  <p><b>Tugas:</b></p><ol><li>Hitung jumlah serbuk yang ditimbang dan kadar larutan uji persediaan.</li><li>Lakukan pengenceran hingga ±0,01 mg/mL dengan alat dan teknik yang benar.</li><li>Tentukan faktor pengenceran dan penyiapan akhir larutan uji.</li><li>Evaluasi kesesuaian sistem kromatografi.</li><li>Hitung kadar parasetamol terhadap etiket dan simpulkan.</li></ol><p class="muted">Literatur FI VI tersedia di meja.</p>`,
+  steps: [
+    { id: "weigh", kind: "input", skill: "Perhitungan penimbangan", unit: "mg", min: 119.5, max: 120.5, answer: "120 mg",
+      prompt: "Berapa mg serbuk tablet yang ditimbang agar setara 100 mg parasetamol?", hint: "Satu tablet seberat 600 mg mengandung 500 mg parasetamol. Gunakan perbandingan.",
+      why: "100 mg ÷ 500 mg × 600 mg = 120 mg serbuk.", refs: ["fiTabPct"] },
+    { id: "conc", kind: "choice", skill: "Kadar larutan persediaan", prompt: "Serbuk setara 100 mg parasetamol dilarutkan dalam labu tentukur 200 mL. Kadar larutan uji persediaan?",
+      hint: "Yang dihitung adalah zat aktif, bukan berat serbuk.",
+      options: [ { t: "0,5 mg/mL", ok: true }, { t: "0,6 mg/mL", ok: false }, { t: "0,05 mg/mL", ok: false }, { t: "2 mg/mL", ok: false } ],
+      why: "100 mg ÷ 200 mL = 0,5 mg/mL. Angka 0,6 mg/mL muncul bila berat serbuk (120 mg) yang dipakai.", refs: ["fiTabPct"] },
+    { id: "vol", kind: "input", skill: "Perhitungan pengenceran", unit: "mL", min: 0.99, max: 1.01, answer: "1,0 mL",
+      prompt: "Berapa mL larutan persediaan (0,5 mg/mL) yang dipipet ke labu tentukur 50 mL agar kadarnya 0,01 mg/mL?", hint: "Gunakan V1 × C1 = V2 × C2.",
+      why: "V1 = (0,01 × 50) ÷ 0,5 = 1,0 mL.", refs: ["fiTabPct"] },
+    { id: "tool", kind: "choice", skill: "Pemilihan alat", prompt: "Alat apa yang dipakai untuk memindahkan 1,0 mL secara kuantitatif, dan berapa batas kesalahannya menurut FI VI?",
+      hint: "Lihat tabel Peralatan Volumetrik <21> di literatur.",
+      options: [ { t: "Pipet volume 1 mL, batas kesalahan ±0,006 mL", ok: true }, { t: "Pipet ukur 10 mL, batas kesalahan ±0,006 mL", ok: false }, { t: "Gelas ukur 10 mL, batas kesalahan ±0,05 mL", ok: false }, { t: "Pipet volume 1 mL, batas kesalahan ±0,05 mL", ok: false } ],
+      why: "FI VI <21>: pipet volume 1 mL memiliki batas kesalahan 0,006 mL (0,60%). Gelas ukur dan pipet ukur tidak dipakai untuk pengukuran saksama.", refs: ["fiVol"] },
+    { id: "pipette", kind: "action", target: "pipet1", skill: "Teknik memipet", prompt: "Pipet 1,0 mL larutan persediaan ke labu tentukur 50 mL.", done: "1,0 mL larutan persediaan dipindahkan ke labu tentukur 50 mL.", hint: "Ketuk pipet volume di rak.", why: "Pemindahan kuantitatif dengan pipet volume dan pipet filler, bukan dengan mulut.", refs: ["fiVol"] },
+    { id: "fill", kind: "action", target: "fase", skill: "Menepatkan volume", prompt: "Encerkan dengan fase gerak sampai tanda.", done: "Labu diisi fase gerak hingga mendekati tanda batas, lalu ditepatkan tetes demi tetes.", hint: "Ketuk botol fase gerak.", why: "Pengenceran dengan pelarut yang ditetapkan monografi.", refs: ["fiTabPct"] },
+    { id: "menis", kind: "choice", skill: "Pembacaan meniskus", prompt: "Lihat leher labu. Kapan volume dianggap tepat sampai tanda?", zoom: "neck",
+      hint: "Untuk larutan jernih, bagian meniskus mana yang dibaca, dan dari posisi mata seperti apa?",
+      options: [ { t: "Bagian bawah meniskus tepat menyinggung garis tanda, mata sejajar garis", ok: true }, { t: "Bagian atas meniskus menyinggung garis tanda, dilihat dari atas", ok: false }, { t: "Cairan melewati tanda sedikit agar tidak kurang", ok: false } ],
+      why: "Larutan jernih dibaca pada dasar meniskus, sejajar mata, untuk menghindari galat paralaks.", refs: ["fiVol"] },
+    { id: "fp", kind: "input", skill: "Faktor pengenceran", unit: "×", min: 49.5, max: 50.5, answer: "50", prompt: "Berapa faktor pengenceran dari larutan uji persediaan ke larutan uji?", hint: "FP = volume akhir ÷ volume yang dipipet.", why: "FP = 50 mL ÷ 1 mL = 50 (0,5 mg/mL → 0,01 mg/mL).", refs: ["fiTabPct"] },
+    { id: "filter", kind: "choice", skill: "Penyiapan akhir", prompt: "Sebelum disuntikkan ke KCKT, larutan uji diperlakukan bagaimana menurut monografi?", hint: "Monografi memberi ukuran porositas penyaring dan perlakuan pada filtrat pertama.",
+      options: [ { t: "Disaring dengan penyaring porositas 0,5 µm atau lebih halus, 10 mL filtrat pertama dibuang", ok: true }, { t: "Disentrifugasi lalu langsung disuntikkan", ok: false }, { t: "Disaring dengan kertas saring biasa, seluruh filtrat dipakai", ok: false } ],
+      why: "FI VI: saring melalui penyaring 0,5 µm atau lebih halus, buang 10 mL filtrat pertama, gunakan larutan jernih.", refs: ["fiTabPct"] },
+    { id: "sst", kind: "choice", skill: "Kesesuaian sistem", prompt: "Lima penyuntikan larutan baku memberi: simpangan baku relatif 1,4%, faktor ikutan 1,3, efisiensi kolom 2.850 lempeng teoritis. Kesimpulan?",
+      hint: "Bandingkan dengan syarat pada Sistem kromatografi di monografi Tablet Parasetamol.",
+      options: [ { t: "Memenuhi: efisiensi ≥ 1000 lempeng, faktor ikutan ≤ 2, SBR ≤ 2,0%", ok: true }, { t: "Tidak memenuhi karena faktor ikutan harus ≤ 1,0", ok: false }, { t: "Tidak memenuhi karena SBR harus ≤ 1,0%", ok: false }, { t: "Tidak memenuhi karena efisiensi harus ≥ 5000 lempeng", ok: false } ],
+      why: "Monografi: efisiensi kolom tidak kurang dari 1000 lempeng teoritis, faktor ikutan tidak lebih dari 2, SBR penyuntikan ulang tidak lebih dari 2,0%.", refs: ["fiTabPct", "fiKrom"] },
+    { id: "assay", kind: "input", skill: "Perhitungan kadar", unit: "%", min: 100.2, max: 100.8, answer: "100,5%",
+      prompt: "Respons puncak rata-rata: larutan uji rU = 1.248.500; larutan baku rS = 1.262.300. Hitung CS dari penyiapan baku pada lembar soal; CU = 0,01 mg/mL. Berapa % kadar parasetamol terhadap etiket?",
+      hint: "CS = (25,4 mg ÷ 50 mL) × (2 mL ÷ 100 mL). Lalu % = (rU/rS) × (CS/CU) × 100.",
+      why: "CS = 0,508 mg/mL × 2/100 = 0,01016 mg/mL. % = (1.248.500 ÷ 1.262.300) × (0,01016 ÷ 0,01) × 100 = 100,5% (syarat 90,0–110,0%).", refs: ["fiTabPct"] } ] },
+
+{ id: "x6", no: 6, area: "Pembuatan", built: false, title: "Uji sterilitas metode inokulasi langsung", color: 0x7a5bb5 },
+
+{ id: "s3", no: 7, area: "Distribusi", built: true, title: "Penerimaan & penyimpanan vaksin", color: 0x2563a8, kind: "vaccine",
+  refs: ["pmkVVM", "pmkKocok", "pmk12", "whoVVM", "kemkesCC", "undipVax"],
+  sheet: `<p><b>Tempat:</b> Gudang farmasi Puskesmas Sukamaju, Kamis pukul 13.30.</p>
+  <p>Kiriman vaksin dari Instalasi Farmasi Kabupaten tiba dengan mobil boks berpendingin, dalam satu cold box berisi cool pack, bersama dokumen SBBK. Perjalanan memakan waktu 3 jam karena jalan ditutup. Petugas pengantar menyampaikan bahwa pendingin mobil sempat terlalu dingin di tengah perjalanan.</p>
+  <p><b>Isi SBBK:</b> MR 2 batch (MR-2611A, MR-2611B), BCG 1 batch, DPT-HB-Hib 30 vial (DH-0934), Td 20 vial. Sasaran imunisasi bulan depan sudah terjadwal di 6 posyandu.</p>
+  <p>Lemari es vaksin di gudang bertipe buka atas, evaporator di dinding kiri, suhu pagi ini tercatat 4 °C.</p>
+  <p><b>Tugas:</b></p><ol><li>Periksa suhu dan indikator pembekuan, lalu tindak lanjuti temuan.</li><li>Cocokkan dokumen dengan fisik dan tindak lanjuti selisih.</li><li>Periksa VVM setiap vial dan putuskan diterima atau ditolak.</li><li>Tempatkan vaksin pada posisi yang benar di lemari es.</li><li>Tentukan urutan pemakaian dan pencatatan.</li></ol><p class="muted">Literatur tersedia di meja.</p>`,
+  steps: [
+    { id: "temp", kind: "action", target: "coldbox", skill: "Pemeriksaan suhu", prompt: "Buka cold box, baca termometer dan indikator pembekuan.", done: "Termometer 3,1 °C · Freeze indicator pada kotak DPT-HB-Hib: ✗ (TERAKTIVASI).", hint: "Ketuk cold box biru di meja.", why: "Suhu dan indikator pembekuan diperiksa saat penerimaan.", refs: ["pmkKocok"] },
+    { id: "tempok", kind: "choice", skill: "Tindak lanjut indikator beku", prompt: "Suhu 3,1 °C, tetapi freeze indicator pada kotak DPT-HB-Hib teraktivasi. Tindakan Anda?",
+      hint: "Vaksin mana yang rusak bila membeku, dan bagaimana membuktikannya?",
+      options: [ { t: "Lakukan uji kocok pada DPT-HB-Hib dengan pembanding vial jenis dan batch sama yang sengaja dibekukan", ok: true }, { t: "Terima semua vaksin karena suhu masih 2–8 °C", ok: false }, { t: "Lakukan uji kocok pada semua vaksin, termasuk MR dan BCG", ok: false }, { t: "Musnahkan seluruh kiriman", ok: false } ],
+      why: "Vaksin sensitif beku yang dicurigai pernah membeku diuji kocok dengan pembanding jenis dan batch sama. MR dan BCG tidak rusak oleh beku.", refs: ["pmkKocok"] },
+    { id: "shake", kind: "choice", skill: "Interpretasi uji kocok", prompt: "Setelah dikocok dan didiamkan berdampingan, vial \"Tersangka beku\" mengendap lebih lambat dibanding vial \"Dibekukan\". Kesimpulan?",
+      hint: "Vaksin yang pernah beku membentuk endapan kasar yang cepat turun.",
+      options: [ { t: "Vaksin DPT-HB-Hib tidak rusak oleh beku dan boleh digunakan (VVM tetap diperiksa)", ok: true }, { t: "Vaksin rusak dan harus dimusnahkan", ok: false }, { t: "Uji harus diulang dengan pembanding batch lain", ok: false } ],
+      why: "Pengendapan tersangka beku yang lebih lambat dari kontrol beku berarti vaksin dapat digunakan. Sama atau lebih cepat berarti rusak.", refs: ["pmkKocok"] },
+    { id: "doc", kind: "choice", skill: "Kesesuaian dokumen", prompt: "SBBK menulis DPT-HB-Hib 30 vial, fisik hanya 28 vial (data lain sesuai). Tindakan yang benar?",
+      hint: "Yang ditandatangani harus sesuai kenyataan fisik.",
+      options: [ { t: "Terima sesuai fisik (28 vial), catat selisih di dokumen penerimaan/berita acara, konfirmasi ke pengirim", ok: true }, { t: "Tanda tangani SBBK 30 vial agar proses cepat", ok: false }, { t: "Tolak seluruh kiriman DPT-HB-Hib", ok: false } ],
+      why: "Penerimaan dicatat sesuai fisik; selisih didokumentasikan dan dikonfirmasi sebelum tanda tangan. Kondisi VVM saat diterima juga dicatat pada SBBK.", refs: ["pmkKocok", "pmk12"] },
+    { id: "vvm", kind: "vvm", skill: "Pembacaan VVM", prompt: "Periksa VVM setiap vial di cold box, lalu tentukan terima atau tolak.",
+      hint: "Bandingkan warna kotak di tengah dengan lingkaran luar, bukan dengan vial lain.",
+      vials: [ { id: "A", vac: "mr", batch: "MR-2611A", ed: "08/2027", stage: 1, ok: true }, { id: "B", vac: "mr", batch: "MR-2611B", ed: "11/2027", stage: 2, ok: true }, { id: "C", vac: "dpt", batch: "DH-0934", ed: "05/2027", stage: 3, ok: false }, { id: "D", vac: "bcg", batch: "BC-1102", ed: "03/2027", stage: 4, ok: false } ],
+      why: "Terima bila kotak lebih terang dari lingkaran (A–B). Tolak bila kotak sama atau lebih gelap (C–D).", refs: ["pmkVVM", "whoVVM"] },
+    { id: "place", kind: "place", skill: "Penempatan di lemari es", prompt: "Tentukan posisi tiap vaksin di lemari es buka atas.",
+      hint: "Kelompokkan: mana yang rusak oleh panas, mana yang rusak oleh beku.",
+      items: [ { vac: "mr", zone: "near" }, { vac: "bcg", zone: "near" }, { vac: "dpt", zone: "far" }, { vac: "td", zone: "far" } ],
+      why: "Sensitif panas (MR/campak, BCG, polio) dekat evaporator. Sensitif beku (DPT-HB-Hib, Td, DT, Hep B, IPV) jauh dari evaporator.", refs: ["kemkesCC", "undipVax"] },
+    { id: "order", kind: "choice", skill: "Urutan pemakaian", prompt: "MR-2611A (VVM A, ED 08/2027) dan MR-2611B (VVM B, ED 11/2027). Mana dipakai lebih dulu?",
+      hint: "Prioritas pertama ditentukan VVM, baru kemudian tanggal kedaluwarsa.",
+      options: [ { t: "MR-2611B, karena VVM B diprioritaskan walau ED lebih lama", ok: true }, { t: "MR-2611A, karena ED lebih dekat (EEFO)", ok: false }, { t: "Bebas, keduanya masih layak", ok: false } ],
+      why: "Permenkes 12/2017: VVM B digunakan lebih dahulu walaupun kedaluwarsanya lebih panjang; EEFO berlaku bila kondisi VVM sama.", refs: ["pmkVVM"] },
+    { id: "record", kind: "choice", skill: "Pencatatan", prompt: "Apa yang dicatat setelah vaksin disimpan?",
+      hint: "Ada dua catatan: per item vaksin, dan kondisi alat penyimpan.",
+      options: [ { t: "Kartu stok tiap vaksin (tanggal, asal, batch, ED, jumlah, VVM, hasil uji kocok) dan suhu lemari es pagi-sore", ok: true }, { t: "Cukup simpan SBBK di map", ok: false }, { t: "Catat total vial semua vaksin dalam satu baris", ok: false } ],
+      why: "Pencatatan per item dan pemantauan suhu lemari es 2× sehari adalah bagian dari pengelolaan rantai dingin.", refs: ["pmk12", "undipVax"] } ] },
+
+{ id: "x8", no: 8, area: "Distribusi", built: false, title: "Pengadaan: RKO + SP psikotropika & prekursor", color: 0x2563a8 },
+{ id: "x9", no: 9, area: "Distribusi", built: false, title: "Pemusnahan narkotika kedaluwarsa + BAP", color: 0x2563a8 },
+{ id: "rest", no: 10, area: "Istirahat", built: true, rest: true, title: "Ruang istirahat", color: 0x5b6b73 }
+];
+
+/* ucapan: singkatan & satuan dibaca alami oleh TTS */
+const SPEAK_FIX = [[/\b4KDT\b/g, "empat ka de te"], [/\bOAT\b/g, "obat TB"], [/\bTB\b/g, "te be"], [/\bBPJS\b/g, "be pe je es"], [/\bB6\b/g, "be enam"], [/\bmg\b/g, "miligram"], [/\bmL\b/g, "mililiter"], [/%/g, " persen"], [/°C/g, " derajat celsius"]];
+
+</script>
+<script type="module">
+import * as THREE from "three";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+
+/* ================= RENDERER ================= */
+const canvas = document.getElementById("c");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+renderer.localClippingEnabled = true;
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0xdfe6e8);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.02, 200);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xd6d0c4, 2.3));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(4, 8, 6); scene.add(sun);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const ENV = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ================= HELPERS ================= */
+const mc = {};
+const M = (c, own) => own ? new THREE.MeshLambertMaterial({ color: c }) : (mc[c] || (mc[c] = new THREE.MeshLambertMaterial({ color: c })));
+function add(p, m, x = 0, y = 0, z = 0) { m.position.set(x, y, z); p.add(m); return m; }
+const box = (p, w, h, d, c, x, y, z) => add(p, new THREE.Mesh(new THREE.BoxGeometry(w, h, d), M(c)), x, y, z);
+const rbox = (p, w, h, d, r, c, x, y, z, mat) => add(p, new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, r), mat || M(c)), x, y, z);
+const cyl = (p, rt, rb, h, c, x, y, z, seg = 16) => add(p, new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), M(c)), x, y, z);
+const sph = (p, r, c, x, y, z) => add(p, new THREE.Mesh(new THREE.SphereGeometry(r, 18, 12), M(c)), x, y, z);
+const glassMat = (op = 0.22, tint = 0xeef8fb) => new THREE.MeshPhysicalMaterial({ color: tint, metalness: 0, roughness: 0.04, transparent: true, opacity: op, envMap: ENV, envMapIntensity: 1.4, clearcoat: 1, clearcoatRoughness: 0.05, depthWrite: false, side: THREE.DoubleSide });
+const liqMat = (c = 0xd6ecff, op = 0.6) => new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.08, transparent: true, opacity: op, envMap: ENV, envMapIntensity: 0.8, depthWrite: false, side: THREE.DoubleSide });
+function lathe(pts, s, mat, seg = 36) { return new THREE.Mesh(new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r * s, y * s)), seg), mat); }
+function textTex(lines, w = 512, h = 256, bg = "#ffffff", fg = "#14232a", size = 44) {
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h; const g = cv.getContext("2d");
+  if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); } g.fillStyle = fg; g.textAlign = "center"; g.textBaseline = "middle";
+  const a = Array.isArray(lines) ? lines : [lines];
+  a.forEach((l, i) => { const s = i === 0 ? size : size * 0.62; g.font = `${i === 0 ? 800 : 600} ${s}px "Plus Jakarta Sans", system-ui, sans-serif`; g.fillText(l, w / 2, h / 2 + (i - (a.length - 1) / 2) * size * 1.05); });
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function plane(p, w, h, tex, x, y, z, ry = 0, transparent = false) { const m = add(p, new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, transparent })), x, y, z); m.rotation.y = ry; return m; }
+const interactives = [];
+function act(o, id) { o.userData.act = id; interactives.push(o); return o; }
+const hexCss = c => "#" + c.toString(16).padStart(6, "0");
+
+/* tweens & camera */
+const tweens = [];
+const ease = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+function tween(dur, fn) { return new Promise(res => tweens.push({ t0: performance.now(), dur: REDUCED ? Math.min(dur, 120) : dur, fn, res })); }
+const wait = ms => new Promise(r => setTimeout(r, REDUCED ? Math.min(ms, 100) : ms));
+const camLook = new THREE.Vector3(0, 1.5, -5);
+function moveCam(pos, look, dur = 900, walk = false) {
+  const p0 = camera.position.clone(), l0 = camLook.clone(), p1 = new THREE.Vector3(...pos), l1 = new THREE.Vector3(...look);
+  let st = null; if (walk) { sfx("step"); st = setInterval(() => sfx("step"), 430); }
+  return tween(dur, k => { camera.position.lerpVectors(p0, p1, k); camLook.lerpVectors(l0, l1, k); }).then(() => clearInterval(st));
+}
+function moveObj(o, to, dur) { const p0 = o.position.clone(), p1 = new THREE.Vector3(...to); return tween(dur, k => o.position.lerpVectors(p0, p1, k)); }
+
+/* ================= AUDIO ================= */
+const AU = { ctx: null, master: null, sfxOn: true, voiceOn: true, amb: null, drone: null, noise: null };
+function actx() {
+  if (!AU.ctx) { try { AU.ctx = new (window.AudioContext || window.webkitAudioContext)(); AU.master = AU.ctx.createGain(); AU.master.gain.value = AU.sfxOn ? 1 : 0; AU.master.connect(AU.ctx.destination);
+    const len = AU.ctx.sampleRate * 2, b = AU.ctx.createBuffer(1, len, AU.ctx.sampleRate), d = b.getChannelData(0); for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1; AU.noise = b; } catch (e) { return null; } }
+  if (AU.ctx.state === "suspended") AU.ctx.resume(); return AU.ctx;
+}
+function env(g, t, a, peak, dec) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + a); g.gain.exponentialRampToValueAtTime(0.0001, t + a + dec); }
+function noiseHit(t, f, q, peak, dec, type = "bandpass") { const c = AU.ctx, s = c.createBufferSource(); s.buffer = AU.noise; const fl = c.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = c.createGain(); env(g, t, 0.005, peak, dec); s.connect(fl); fl.connect(g); g.connect(AU.master); s.start(t, Math.random()); s.stop(t + dec + 0.05); }
+function tone(t, f, type, peak, dec, f2) { const c = AU.ctx, o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dec); env(g, t, 0.01, peak, dec); o.connect(g); g.connect(AU.master); o.start(t); o.stop(t + dec + 0.05); }
+function sfx(k) {
+  const c = actx(); if (!c) return; const t = c.currentTime;
+  if (k === "step") { noiseHit(t, 160 + Math.random() * 60, 1.2, 0.35, 0.12, "lowpass"); noiseHit(t + 0.01, 2500, 2, 0.04, 0.05); }
+  if (k === "door") { tone(t, 140, "sawtooth", 0.05, 0.55, 95); noiseHit(t, 600, 3, 0.08, 0.5); noiseHit(t + 0.55, 1800, 4, 0.25, 0.08); }
+  if (k === "click") tone(t, 1100, "triangle", 0.08, 0.06);
+  if (k === "bell") { [[0, 784], [0.55, 659]].forEach(([d, f]) => { tone(t + d, f, "sine", 0.32, 1.6); tone(t + d, f * 2.76, "sine", 0.06, 0.8); tone(t + d, f * 5.4, "sine", 0.025, 0.4); }); }
+  if (k === "tick") { tone(t, 1800, "square", 0.05, 0.03); }
+  if (k === "beat") { tone(t, 62, "sine", 0.55, 0.16, 45); tone(t + 0.2, 58, "sine", 0.4, 0.16, 42); }
+  if (k === "ok") { tone(t, 660, "sine", 0.1, 0.15); tone(t + 0.09, 990, "sine", 0.1, 0.2); }
+  if (k === "page") noiseHit(t, 3200, 1.5, 0.06, 0.18, "highpass");
+  if (k === "warn") { [0, 0.28, 0.56].forEach(d => tone(t + d, 988, "triangle", 0.18, 0.22)); }
+}
+function ambience(on, kind = "room") {
+  const c = actx(); if (!c) return;
+  if (AU.amb) { const a = AU.amb; a.g.gain.setTargetAtTime(0, c.currentTime, 0.3); setTimeout(() => { try { a.s.stop(); a.h && a.h.stop(); } catch (e) {} }, 1500); AU.amb = null; }
+  if (!on) return;
+  const s = c.createBufferSource(); s.buffer = AU.noise; s.loop = true; const f = c.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = kind === "lab" ? 900 : 380; const g = c.createGain(); g.gain.value = 0; s.connect(f); f.connect(g); g.connect(AU.master); s.start();
+  let h = null; if (kind === "lab" || kind === "vaccine") { h = c.createOscillator(); h.frequency.value = kind === "lab" ? 120 : 100; const hg = c.createGain(); hg.gain.value = 0.012; h.connect(hg); hg.connect(g); h.start(); }
+  g.gain.setTargetAtTime(kind === "corridor" ? 0.05 : 0.035, c.currentTime, 0.8); AU.amb = { s, g, h };
+}
+function tension(on, k = 0) {
+  const c = actx(); if (!c) return;
+  if (on && !AU.drone) { const o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter(); o.type = "sawtooth"; o2.type = "sawtooth"; o.frequency.value = 55; o2.frequency.value = 55.7; f.type = "lowpass"; f.frequency.value = 300; g.gain.value = 0; o.connect(f); o2.connect(f); f.connect(g); g.connect(AU.master); o.start(); o2.start(); AU.drone = { o, o2, g, f }; }
+  if (AU.drone && on) { const t = c.currentTime; AU.drone.g.gain.setTargetAtTime(0.04 + k * 0.08, t, 0.2); AU.drone.o.frequency.setTargetAtTime(55 + k * 55, t, 0.3); AU.drone.o2.frequency.setTargetAtTime(55.7 + k * 56, t, 0.3); AU.drone.f.frequency.setTargetAtTime(300 + k * 900, t, 0.3); }
+  if (!on && AU.drone) { const d = AU.drone; d.g.gain.setTargetAtTime(0, c.currentTime, 0.1); setTimeout(() => { try { d.o.stop(); d.o2.stop(); } catch (e) {} }, 600); AU.drone = null; }
+}
+let VOICES = []; const loadVoices = () => { try { VOICES = speechSynthesis.getVoices(); } catch (e) {} };
+if ("speechSynthesis" in window) { loadVoices(); speechSynthesis.onvoiceschanged = loadVoices; }
+let VP = { patient: "", proctor: "", rate: 1 }; try { Object.assign(VP, JSON.parse(localStorage.getItem("ruangosce-voice") || "{}")); } catch (e) {}
+const saveVP = () => { try { localStorage.setItem("ruangosce-voice", JSON.stringify(VP)); } catch (e) {} };
+const idVoices = () => VOICES.filter(v => /^id|^in[-_]/i.test(v.lang) || /indonesia/i.test(v.name));
+const isMale = v => /ardi|andika|male|pria|laki/i.test(v.name), isFemale = v => /gadis|damayanti|female|wanita|siti|perempuan/i.test(v.name);
+function scoreVoice(v, g) { let s = 0; if (/natural|neural|premium|enhanced|ditingkatkan/i.test(v.name)) s += 6; if (/online/i.test(v.name)) s += 3; if (/google/i.test(v.name)) s += 4; if (g === "m" && isMale(v)) s += 3; if (g === "f" && isFemale(v)) s += 3; if (/^id-ID/i.test(v.lang)) s += 1; return s; }
+function pickVoice(role) { const L = idVoices(); const want = VP[role]; const f = L.find(v => v.name === want); if (f) return f; const g = role === "patient" ? "m" : "f"; return L.slice().sort((a, b) => scoreVoice(b, g) - scoreVoice(a, g))[0] || null; }
+function speechText(t) { let x = t; SPEAK_FIX.forEach(([r, w]) => x = x.replace(r, w)); return x.replace(/…/g, ", ").replace(/\s+—\s+/g, ", "); }
+function speak(text, onend, role = "patient") {
+  if (!AU.voiceOn || !("speechSynthesis" in window)) return false;
+  try { if (role === "patient") speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(speechText(text)); u.lang = "id-ID"; const v = pickVoice(role); if (v) u.voice = v;
+    u.rate = VP.rate * (role === "proctor" ? 0.95 : 1); u.pitch = role === "patient" ? (v && isFemale(v) ? 0.8 : 0.95) : 1.0; u.onend = onend; u.onerror = onend; speechSynthesis.speak(u); return true; } catch (e) { return false; }
+}
+function announce(text) { banner(text); speak(text, null, "proctor"); }
+function banner(text, warn) { const b = document.getElementById("banner"); if (!b) return; b.textContent = text; b.classList.toggle("warn", !!warn); b.hidden = false; clearTimeout(banner.t); banner.t = setTimeout(() => b.hidden = true, 3200); }
+
+/* ================= GLASSWARE ================= */
+function makeFlask(parent, s, label, liquid = 0xd8ecff, level = 0.5) {
+  const g = new THREE.Group(); parent.add(g);
+  const P = [[0, 0], [0.05, 0], [0.057, 0.006], [0.061, 0.03], [0.059, 0.062], [0.047, 0.094], [0.024, 0.118], [0.0135, 0.132], [0.0135, 0.27], [0.0165, 0.274], [0.0165, 0.282]];
+  add(g, lathe(P, s, glassMat()), 0, 0, 0).renderOrder = 3;
+  const plane0 = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0); const lm = liqMat(liquid); lm.clippingPlanes = [plane0];
+  const L = [[0, 0.004], [0.047, 0.004], [0.055, 0.03], [0.053, 0.06], [0.042, 0.092], [0.021, 0.116], [0.0115, 0.13], [0.0115, 0.268]];
+  add(g, lathe(L, s, lm), 0, 0, 0).renderOrder = 2;
+  add(g, new THREE.Mesh(new THREE.TorusGeometry(0.0139 * s, 0.0009 * s, 6, 32), new THREE.MeshBasicMaterial({ color: 0x14232a })), 0, 0.2 * s, 0).rotation.x = Math.PI / 2;
+  const men = add(g, lathe([[0, -0.0035], [0.006, -0.0028], [0.0105, -0.0008], [0.0115, 0.0012]], s, new THREE.MeshPhysicalMaterial({ color: 0x6aa8d8, transparent: true, opacity: 0.9, roughness: 0.1, envMap: ENV, side: THREE.DoubleSide })), 0, 0, 0); men.visible = false;
+  cyl(g, 0.016 * s, 0.013 * s, 0.022 * s, 0x2f6fa8, 0, 0.29 * s, 0);
+  if (label) plane(g, 0.07 * s, 0.03 * s, textTex(label, 360, 150, "#ffffff", "#14232a", 46), 0, 0.045 * s, 0.059 * s);
+  const wp = new THREE.Vector3();
+  const F = { g, s, markY: 0.2 * s, mat: lm, set(y) { g.getWorldPosition(wp); plane0.constant = wp.y + y; F.level = y; men.visible = y > 0.13 * s; men.position.y = y; }, level: 0 };
+  F.set(level * s * 0.1); return F;
+}
+function makePipette(parent) {
+  const g = new THREE.Group(); parent.add(g); const gm = glassMat(0.32);
+  add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.13, 10), gm), 0, 0.255, 0);
+  add(g, new THREE.Mesh(new THREE.SphereGeometry(0.011, 16, 12), gm), 0, 0.16, 0).scale.set(1, 1.9, 1);
+  add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.0012, 0.14, 10), gm), 0, 0.07, 0);
+  add(g, new THREE.Mesh(new THREE.TorusGeometry(0.0037, 0.0005, 6, 16), new THREE.MeshBasicMaterial({ color: 0x14232a })), 0, 0.27, 0).rotation.x = Math.PI / 2;
+  const lg = new THREE.CylinderGeometry(0.0024, 0.001, 0.27, 8); lg.translate(0, 0.135, 0);
+  const liq = add(g, new THREE.Mesh(lg, liqMat(0xbfe0ff, 0.85)), 0, 0.002, 0); liq.scale.y = 0.001;
+  sph(g, 0.017, 0xc0392b, 0, 0.345, 0).scale.set(1, 1.2, 1); cyl(g, 0.006, 0.006, 0.03, 0xa93226, 0, 0.32, 0, 10);
+  plane(g, 0.05, 0.012, textTex("1 mL", 200, 48, "#ffffff", "#14232a", 36), 0, 0.2, 0.0045);
+  return { g, liq };
+}
+function makeTestTube(parent, x, z, c, lvl) {
+  const g = new THREE.Group(); parent.add(g); g.position.set(x, 0, z);
+  add(g, lathe([[0, 0], [0.0045, 0.0006], [0.0082, 0.004], [0.0092, 0.011], [0.0092, 0.13], [0.0105, 0.132]], 1, glassMat(0.3)), 0, 0, 0);
+  if (lvl) { const lm = liqMat(c, 0.75); add(g, lathe([[0, 0.001], [0.0078, 0.0045], [0.0084, 0.011], [0.0084, lvl]], 1, lm), 0, 0, 0); }
+  return g;
+}
+function makeTubeRack(parent, x, z, colors) {
+  const r = new THREE.Group(); parent.add(r); r.position.set(x, 0.785, z);
+  rbox(r, 0.2, 0.012, 0.06, 0.004, 0xe8eef0, 0, 0.005, 0); rbox(r, 0.2, 0.012, 0.06, 0.004, 0xe8eef0, 0, 0.07, 0);
+  [-0.095, 0.095].forEach(x => box(r, 0.008, 0.08, 0.055, 0xd0d8db, x, 0.04, 0));
+  colors.forEach((c, i) => { const t = makeTestTube(r, -0.075 + i * 0.03, 0, c[0], c[1]); t.position.y = 0.012; });
+  return r;
+}
+function makeCuvette(parent) {
+  const g = new THREE.Group(); parent.add(g); const W = 0.0125, H = 0.045;
+  const clear = glassMat(0.25), frost = new THREE.MeshLambertMaterial({ color: 0xf2f5f6, transparent: true, opacity: 0.85 });
+  add(g, new THREE.Mesh(new THREE.PlaneGeometry(W, H), clear), 0, H / 2, W / 2);
+  add(g, new THREE.Mesh(new THREE.PlaneGeometry(W, H), clear), 0, H / 2, -W / 2).rotation.y = Math.PI;
+  add(g, new THREE.Mesh(new THREE.PlaneGeometry(W, H), frost), W / 2, H / 2, 0).rotation.y = Math.PI / 2;
+  add(g, new THREE.Mesh(new THREE.PlaneGeometry(W, H), frost), -W / 2, H / 2, 0).rotation.y = -Math.PI / 2;
+  box(g, W, 0.002, W, 0xe6eef0, 0, 0.001, 0);
+  add(g, new THREE.Mesh(new THREE.BoxGeometry(W * 0.86, H * 0.62, W * 0.86), liqMat(0xd7ecff, 0.7)), 0, H * 0.33, 0);
+  g.scale.setScalar(1.6); return g;
+}
+function makeBottle(parent, x, z, label, c = 0xf4f6f7) {
+  const g = new THREE.Group(); parent.add(g); g.position.set(x, 0.785, z);
+  add(g, lathe([[0, 0], [0.045, 0], [0.05, 0.01], [0.05, 0.15], [0.04, 0.18], [0.017, 0.2], [0.017, 0.215]], 1, new THREE.MeshPhysicalMaterial({ color: c, roughness: 0.25, transparent: true, opacity: 0.85, envMap: ENV })), 0, 0, 0);
+  cyl(g, 0.02, 0.02, 0.03, 0x2a7ab0, 0, 0.225, 0);
+  plane(g, 0.08, 0.06, textTex(label, 320, 240, "#ffffff", "#14232a", 52), 0, 0.085, 0.051);
+  return g;
+}
+function makeBeaker(parent, x, z, lvl = 0.04) {
+  const g = new THREE.Group(); parent.add(g); g.position.set(x, 0.785, z);
+  add(g, lathe([[0, 0], [0.032, 0], [0.034, 0.004], [0.034, 0.09], [0.037, 0.094]], 1, glassMat(0.26)), 0, 0, 0);
+  add(g, lathe([[0, 0.002], [0.032, 0.002], [0.032, lvl]], 1, liqMat(0xe4f2ff, 0.5)), 0, 0, 0);
+  for (let i = 1; i <= 4; i++) box(g, 0.012, 0.0008, 0.001, 0x14232a, 0.012, i * 0.018, 0.034);
+  return g;
+}
+
+function makeBinder(parent, x, z, ry = 0) {
+  const g = new THREE.Group(); parent.add(g); g.position.set(x, 0.785, z); g.rotation.y = ry;
+  rbox(g, 0.25, 0.012, 0.33, 0.004, 0x1f3f8a, 0, 0.006, 0); box(g, 0.235, 0.03, 0.31, 0xfbfbf6, 0.004, 0.026, 0); rbox(g, 0.25, 0.012, 0.33, 0.004, 0x1f3f8a, 0, 0.046, 0);
+  box(g, 0.02, 0.05, 0.33, 0x173270, -0.125, 0.026, 0);
+  const lab = plane(g, 0.18, 0.1, textTex(["LITERATUR", "FI VI · Pedoman"], 360, 200, "#1f3f8a", "#ffffff", 50), 0.01, 0.0525, 0); lab.rotation.x = -Math.PI / 2;
+  act(g, "lit"); return g;
+}
+
+/* ================= DOOR ================= */
+function makeDoor(parent, s) {
+  const g = new THREE.Group(); parent.add(g);
+  const off = !s.built;
+  box(g, 1.25, 2.35, 0.08, 0x8c97a0, 0, 1.175, -0.02);
+  const pivot = new THREE.Group(); pivot.position.set(-0.5, 0, 0.03); g.add(pivot);
+  rbox(pivot, 1.0, 2.15, 0.05, 0.01, off ? 0xb7b0a4 : 0xc9a46c, 0.5, 1.075, 0);
+  sph(pivot, 0.03, 0x3a3f44, 0.88, 1.05, 0.04);
+  plane(pivot, 0.42, 0.56, textTex(off ? ["SEGERA", "hadir di tahap berikutnya"] : s.rest ? ["ISTIRAHAT", "minum & tenangkan diri"] : ["SOAL", "baca 1 menit"], 256, 340, "#fdfdf8", "#14232a", 46), 0.5, 1.35, 0.03);
+  plane(g, 1.2, 0.36, textTex([s.rest ? "ISTIRAHAT" : `STASIUN ${s.no}`, s.area], 512, 154, off ? "#9aa4ab" : hexCss(s.color), "#ffffff", 52), 0, 2.58, 0.03);
+  const lamp = add(g, new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 12), new THREE.MeshLambertMaterial({ color: 0x9aa4ab })), 0.72, 2.58, 0.06);
+  return { g, pivot, lamp };
+}
+
+/* ================= CORRIDOR ================= */
+const corridor = new THREE.Group(); scene.add(corridor);
+const CZ0 = 7, CZ1 = -14;
+box(corridor, 4.2, 0.1, CZ0 - CZ1, 0xb9c3c7, 0, -0.05, (CZ0 + CZ1) / 2);
+box(corridor, 4.2, 0.1, CZ0 - CZ1, 0xf2f2ee, 0, 3.05, (CZ0 + CZ1) / 2);
+box(corridor, 0.1, 3.1, CZ0 - CZ1, 0xe7ecea, -2.1, 1.5, (CZ0 + CZ1) / 2);
+box(corridor, 0.1, 3.1, CZ0 - CZ1, 0xe7ecea, 2.1, 1.5, (CZ0 + CZ1) / 2);
+box(corridor, 4.2, 3.1, 0.1, 0xd7e3e1, 0, 1.5, CZ1); box(corridor, 4.2, 3.1, 0.1, 0xd7e3e1, 0, 1.5, CZ0);
+for (let z = 6; z > CZ1; z -= 3) box(corridor, 1.4, 0.03, 0.3, 0xffffff, 0, 3.0, z);
+for (let z = 6; z > CZ1; z -= 1) box(corridor, 4.18, 0.012, 0.02, 0xa8b2b6, 0, 0.002, z);
+plane(corridor, 2.8, 0.6, textTex(["AREA UJIAN OSCE", "Harap tenang · tunggu bel sebelum masuk"], 900, 190, "#14232a", "#ffffff", 60), 0, 2.2, CZ1 + 0.07);
+const DOORS = {}, doorSpots = {};
+STATIONS.forEach((s, i) => { const left = i % 2 === 0, row = Math.floor(i / 2); const z = 4.2 - row * 3.6; const x = left ? -2.06 : 2.06;
+  doorSpots[s.id] = { x, z }; const d = makeDoor(corridor, s); d.g.position.set(x, 0, z); d.g.rotation.y = left ? Math.PI / 2 : -Math.PI / 2; DOORS[s.id] = d; act(d.g, "door:" + s.id); });
+
+/* ================= ROOMS ================= */
+const ROOMS = {};
+function makeChair(parent, c) { const g = new THREE.Group(); parent.add(g);
+  rbox(g, 0.48, 0.06, 0.46, 0.02, c, 0, 0.46, 0); rbox(g, 0.48, 0.5, 0.05, 0.02, c, 0, 0.72, 0.22);
+  [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => cyl(g, 0.018, 0.018, 0.46, 0x444a4f, a * 0.2, 0.23, b * 0.19, 8)); return g; }
+function makeRoom(s, ox, opt) {
+  const r = new THREE.Group(); r.position.set(ox, 0, 0); scene.add(r); r.visible = false;
+  box(r, 6, 0.1, 6, opt.floor || 0xcfd6d3, 0, -0.05, 0); box(r, 6, 0.1, 6, 0xf4f4f0, 0, 3.05, 0);
+  box(r, 6, 3.1, 0.1, opt.wall || 0xe9efed, 0, 1.5, -3); box(r, 0.1, 3.1, 6, opt.wall2 || 0xe3eae8, -3, 1.5, 0); box(r, 0.1, 3.1, 6, opt.wall2 || 0xe3eae8, 3, 1.5, 0); box(r, 6, 3.1, 0.1, opt.wall || 0xe9efed, 0, 1.5, 3);
+  box(r, 1.6, 0.03, 0.4, 0xffffff, 0, 3.0, 0);
+  const door = makeDoor(r, s); door.g.position.set(0, 0, 2.94); door.g.rotation.y = Math.PI; act(door.g, "exit");
+  const clock = new THREE.Group(); r.add(clock); clock.position.set(-1.8, 2.3, -2.93);
+  cyl(clock, 0.22, 0.22, 0.04, 0xffffff, 0, 0, 0, 24).rotation.x = Math.PI / 2; const hand = new THREE.Group(); clock.add(hand); box(hand, 0.02, 0.16, 0.01, 0x14232a, 0, 0.06, 0.03); r.userData.hand = hand;
+  let desk = null;
+  if (opt.desk !== false) { desk = new THREE.Group(); r.add(desk); desk.position.set(0, 0, -0.45); const w = opt.deskW || 1.7, lab = opt.lab;
+    rbox(desk, w, lab ? 0.06 : 0.05, 0.85, 0.012, lab ? 0x2f3a40 : 0xb08a5a, 0, 0.755, 0);
+    if (lab) { [-1, 1].forEach(sd => { rbox(desk, w / 2 - 0.05, 0.66, 0.78, 0.01, 0xdfe5e7, sd * (w / 4), 0.36, 0.02); [0.2, 0.5].forEach(y => box(desk, 0.18, 0.015, 0.01, 0x8a959b, sd * (w / 4), y, 0.415)); }); }
+    else [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([a, b]) => box(desk, 0.05, 0.73, 0.05, 0x4a4f53, a * (w / 2 - 0.05), 0.365, b * 0.38)); }
+  const chair = makeChair(r, 0x1f5f7a); chair.position.set(0, 0, 0.75); act(chair, "chair");
+  ROOMS[s.id] = { group: r, door, chair, seat: opt.seat, kind: opt.ambient || "room" }; return r;
+}
+
+/* ---------- patient ---------- */
+let patient = null;
+function makePerson(parent, o) {
+  const g = new THREE.Group(); parent.add(g); const skin = o.skin, shirt = o.shirt, pants = o.pants;
+  [-0.11, 0.11].forEach(x => { rbox(g, 0.15, 0.14, 0.46, 0.04, pants, x, 0.53, 0.2); rbox(g, 0.13, 0.48, 0.14, 0.04, pants, x, 0.26, 0.42); rbox(g, 0.14, 0.07, 0.24, 0.02, 0x2b2b2b, x, 0.035, 0.47); });
+  const torso = new THREE.Group(); torso.position.y = 0.58; g.add(torso);
+  add(torso, new THREE.Mesh(new THREE.CapsuleGeometry(0.19, 0.38, 6, 16), M(shirt)), 0, 0.3, 0).scale.set(1.1, 1, 0.75);
+  box(torso, 0.08, 0.1, 0.01, 0xffffff, 0, 0.55, 0.14).rotation.x = -0.2;
+  cyl(torso, 0.055, 0.06, 0.1, skin, 0, 0.64, 0, 12);
+  const head = new THREE.Group(); head.position.set(0, 0.8, 0); torso.add(head);
+  sph(head, 0.145, skin, 0, 0, 0).scale.set(0.95, 1.08, 1);
+  add(head, new THREE.Mesh(new THREE.SphereGeometry(0.155, 18, 10, 0, Math.PI * 2, 0, Math.PI * 0.42), M(o.hair)), 0, 0.03, -0.022).scale.set(0.97, 1.05, 1.02);
+  const eyes = [-0.05, 0.05].map(x => { sph(head, 0.024, 0xffffff, x, 0.025, 0.122).scale.z = 0.5; return sph(head, 0.014, 0x1d1d1f, x, 0.025, 0.133); });
+  const brows = [-0.05, 0.05].map(x => box(head, 0.055, 0.012, 0.01, o.hair, x, 0.072, 0.132));
+  sph(head, 0.022, skin, 0, -0.01, 0.145);
+  const mouth = box(head, 0.05, 0.01, 0.012, 0x5a2222, 0, -0.068, 0.128);
+  [-0.15, 0.15].forEach(x => sph(head, 0.03, skin, x, 0, 0));
+  const arms = [-1, 1].map(sd => { const sh = new THREE.Group(); sh.position.set(sd * 0.25, 0.5, 0); torso.add(sh);
+    add(sh, new THREE.Mesh(new THREE.CapsuleGeometry(0.055, 0.22, 4, 10), M(shirt)), 0, -0.14, 0);
+    const el = new THREE.Group(); el.position.set(0, -0.3, 0); sh.add(el);
+    add(el, new THREE.Mesh(new THREE.CapsuleGeometry(0.048, 0.2, 4, 10), M(skin)), 0, 0, 0.13).rotation.x = Math.PI / 2; sph(el, 0.055, skin, 0, 0, 0.27);
+    sh.rotation.x = -0.15; return { sh, el }; });
+  return { g, torso, head, mouth, eyes, brows, arms, talking: 0, blinkT: 2, worry: 1 };
+}
+function buildS1() {
+  const s = STATIONS.find(x => x.id === "s1"); const R = makeRoom(s, 100, { seat: [[0, 1.2, 0.78], [0, 1.02, -1.3]], ambient: "room" });
+  const pc = makeChair(R, 0x6b7f88); pc.position.set(0, 0, -1.3); pc.rotation.y = Math.PI;
+  patient = makePerson(R, { skin: 0xc68e62, shirt: 0x5a8fb5, pants: 0x3b4450, hair: 0x231a14 }); patient.g.position.set(0, 0, -1.32); act(patient.g, "patient");
+  const fdc = new THREE.Group(); R.add(fdc); fdc.position.set(0.32, 0.83, -0.35); fdc.rotation.y = -0.4;
+  rbox(fdc, 0.22, 0.1, 0.14, 0.008, 0xffffff, 0, 0, 0); plane(fdc, 0.2, 0.08, textTex(["OAT 4KDT", "R·H·Z·E"], 300, 120, "#c0392b", "#ffffff", 44), 0, 0, 0.071); act(fdc, "label:fdc");
+  makeBinder(R, -0.42, -0.28, 0.35);
+  plane(R, 1.4, 0.8, textTex(["TBC BISA SEMBUH", "Minum obat sampai tuntas", "6 bulan tanpa putus"], 700, 400, "#fff4e0", "#8a3b12", 58), 1.6, 1.7, -2.93);
+  const plant = new THREE.Group(); R.add(plant); plant.position.set(-2.4, 0, -2.3); cyl(plant, 0.2, 0.16, 0.4, 0x8a5a3c, 0, 0.2, 0); sph(plant, 0.35, 0x3f7f4a, 0, 0.7, 0); sph(plant, 0.25, 0x4f9a5a, 0.15, 0.95, 0.05);
+}
+
+/* ---------- spectrophotometer & dissolution ---------- */
+const S2 = {};
+function makeSpectro(parent, x, z) {
+  const sp = new THREE.Group(); parent.add(sp); sp.position.set(x, 0.785, z);
+  rbox(sp, 0.95, 0.27, 0.55, 0.035, 0xe7ebed, 0, 0.135, 0);
+  rbox(sp, 0.93, 0.02, 0.53, 0.008, 0xb7c2c7, 0, 0.27, 0);
+  const well = new THREE.Group(); sp.add(well); well.position.set(0.24, 0.27, -0.02);
+  box(well, 0.3, 0.012, 0.3, 0x1e2427, 0, 0.002, 0); box(well, 0.05, 0.06, 0.05, 0x3a4348, 0, 0.03, 0); box(well, 0.018, 0.04, 0.018, 0x0e1214, 0, 0.045, 0);
+  const lid = new THREE.Group(); lid.position.set(0.24, 0.282, -0.17); sp.add(lid); rbox(lid, 0.34, 0.045, 0.32, 0.012, 0xd3dadd, 0, 0.022, 0.16); box(lid, 0.1, 0.012, 0.012, 0x8a959b, 0, 0.03, 0.32);
+  const scr = document.createElement("canvas"); scr.width = 512; scr.height = 320; const tex = new THREE.CanvasTexture(scr); tex.colorSpace = THREE.SRGBColorSpace;
+  const pod = new THREE.Group(); sp.add(pod); pod.position.set(-0.22, 0.28, 0.12); pod.rotation.x = -0.45;
+  rbox(pod, 0.42, 0.28, 0.035, 0.012, 0x2d3439, 0, 0.13, 0); plane(pod, 0.38, 0.235, tex, 0, 0.135, 0.019);
+  for (let i = 0; i < 12; i++) rbox(sp, 0.028, 0.008, 0.022, 0.003, i === 11 ? 0x0b7a75 : 0xf7f9fa, -0.36 + (i % 4) * 0.036, 0.276, 0.22 - Math.floor(i / 4) * 0.03);
+  const pw = add(sp, new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 20), new THREE.MeshLambertMaterial({ color: 0x22a35a })), 0.39, 0.1, 0.277); pw.rotation.x = Math.PI / 2; act(pw, "power");
+  plane(sp, 0.32, 0.05, textTex(["SPEKTRO UV-VIS"], 480, 75, "#e7ebed", "#5b6b73", 46), -0.05, 0.11, 0.2765);
+  for (let i = 0; i < 8; i++) box(sp, 0.005, 0.12, 0.02, 0xc8d0d4, 0.476, 0.13, -0.17 + i * 0.045);
+  return { sp, lid, tex, scr, pw, well };
+}
+function makeDissolution(parent, x, z) {
+  const d = new THREE.Group(); parent.add(d); d.position.set(x, 0.785, z);
+  rbox(d, 0.86, 0.08, 0.42, 0.02, 0xdde3e5, 0, 0.04, 0);
+  add(d, new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.22, 0.38), new THREE.MeshPhysicalMaterial({ color: 0xbfe3f2, transparent: true, opacity: 0.18, roughness: 0.05, envMap: ENV, depthWrite: false })), 0, 0.19, 0).renderOrder = 4;
+  rbox(d, 0.07, 0.42, 0.07, 0.02, 0xc5ced2, -0.36, 0.29, -0.16);
+  const head = new THREE.Group(); d.add(head); head.position.y = 0.48; rbox(head, 0.86, 0.08, 0.42, 0.025, 0xeef1f2, 0, 0, 0);
+  const dc = document.createElement("canvas"); dc.width = 384; dc.height = 96; const dtex = new THREE.CanvasTexture(dc); dtex.colorSpace = THREE.SRGBColorSpace; plane(head, 0.3, 0.075, dtex, 0.22, 0, 0.212);
+  const paddles = [];
+  for (let i = 0; i < 6; i++) { const px = -0.26 + (i % 3) * 0.26, pz = i < 3 ? 0.085 : -0.085;
+    const v = add(d, lathe([[0, 0], [0.03, 0.003], [0.042, 0.02], [0.045, 0.05], [0.045, 0.24], [0.05, 0.245]], 1, glassMat(0.28)), px, 0.08, pz); v.renderOrder = 5;
+    const lm = liqMat(0xe8f4ff, 0.45); const lq = add(d, lathe([[0, 0.003], [0.028, 0.006], [0.04, 0.022], [0.042, 0.05], [0.042, 0.19]], 1, lm), px, 0.08, pz); lq.visible = false; lq.renderOrder = 4;
+    const sh = new THREE.Group(); d.add(sh); sh.position.set(px, 0.1, pz); cyl(sh, 0.004, 0.004, 0.36, 0x9aa4ab, 0, 0.2, 0, 8); box(sh, 0.06, 0.02, 0.004, 0xb0b8bc, 0, 0.03, 0);
+    paddles.push({ sh, lq }); }
+  return { d, paddles, dtex, dc };
+}
+function drawDiss(running, t = 0) {
+  const g = S2.ds.dc.getContext("2d"); g.fillStyle = "#14232a"; g.fillRect(0, 0, 384, 96); g.fillStyle = running ? "#7fe0d4" : "#5b6b73"; g.font = "700 30px system-ui";
+  g.fillText(running ? `37,0 °C · 50 rpm · ${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}` : "37,0 °C · siap", 16, 60); S2.ds.dtex.needsUpdate = true;
+}
+function drawScreen(mode) {
+  const g = S2.spc.scr.getContext("2d"), W = 512, H = 320;
+  g.fillStyle = mode === "off" ? "#1a1f22" : "#0f2a33"; g.fillRect(0, 0, W, H);
+  if (mode === "off") { S2.spc.tex.needsUpdate = true; return; }
+  g.fillStyle = "#7fe0d4"; g.font = "700 22px system-ui"; g.fillText("UV-VIS · Fotometri", 18, 32);
+  if (mode === "warm") { g.fillStyle = "#e6f2f0"; g.font = "600 28px system-ui"; g.fillText("Lampu D2 + W: ON", 30, 140); g.fillText("Inisialisasi… siap", 30, 190); }
+  if (mode === "spectrum") {
+    g.strokeStyle = "#2c5560"; g.lineWidth = 1; for (let i = 0; i <= 4; i++) { const y = 70 + i * 50; g.beginPath(); g.moveTo(50, y); g.lineTo(490, y); g.stroke(); }
+    const x = nm => 50 + (nm - 200) / 200 * 440, y = a => 270 - a * 240; g.strokeStyle = "#7fe0d4"; g.lineWidth = 3; g.beginPath();
+    for (let nm = 206; nm <= 400; nm += 2) { const a = 0.66 * Math.exp(-Math.pow((nm - 243) / 17, 2)) + 0.3 * Math.exp(-Math.pow((nm - 208) / 7, 2)) + 0.008; nm === 206 ? g.moveTo(x(nm), y(a)) : g.lineTo(x(nm), y(a)); }
+    g.stroke(); g.fillStyle = "#ffd36b"; g.beginPath(); g.arc(x(243), y(0.668), 6, 0, 7); g.fill(); g.font = "700 22px system-ui"; g.fillText("puncak 243 nm · A 0,652", x(243) + 12, y(0.668) - 8);
+    g.fillStyle = "#9fb8bd"; g.font = "500 18px system-ui"; ["200", "250", "300", "350", "400"].forEach((t, i) => g.fillText(t, 38 + i * 110, 300)); g.fillText("nm", 470, 318);
+  }
+  if (mode === "zero") { g.fillStyle = "#e6f2f0"; g.font = "700 28px system-ui"; g.fillText("λ 243 nm · blanko media", 30, 110); g.fillStyle = "#7fe0d4"; g.font = "800 46px system-ui"; g.fillText("A = 0,000", 30, 200); }
+  if (mode === "result") { g.fillStyle = "#e6f2f0"; g.font = "700 26px system-ui"; g.fillText("λ 243 nm", 30, 90); g.font = "700 34px system-ui"; g.fillText("Baku     A = 0,652", 30, 170); g.fillStyle = "#ffd36b"; g.fillText("Sampel  A = 0,654", 30, 230); }
+  S2.spc.tex.needsUpdate = true;
+}
+function buildS2() {
+  const s = STATIONS.find(x => x.id === "s2"); const R = makeRoom(s, 140, { lab: true, deskW: 2.8, seat: [[0, 1.38, 0.75], [0, 0.72, -0.5]], ambient: "lab", wall: 0xeef0f4 });
+  S2.spc = makeSpectro(R, 0.55, -0.62); S2.ds = makeDissolution(R, -0.62, -0.6); drawScreen("off"); drawDiss(false);
+  S2.baku = makeFlask(R, 0.8, "BAKU", 0xe2f0ff, 1.2); S2.baku.g.position.set(-0.05, 0.785, -0.12); S2.baku.set(0.14); act(S2.baku.g, "baku");
+  S2.sampel = makeFlask(R, 0.8, "SAMPEL", 0xe2f0ff, 1.2); S2.sampel.g.position.set(0.12, 0.785, -0.12); S2.sampel.set(0.14); act(S2.sampel.g, "sampel");
+  act(makeBottle(R, 1.15, -0.25, ["Dapar fosfat", "pH 5,8"]), "label:media");
+  const rack = new THREE.Group(); R.add(rack); rack.position.set(0.36, 0.785, -0.12); rbox(rack, 0.16, 0.03, 0.05, 0.008, 0x3b82a0, 0, 0.015, 0); S2.rack = rack;
+  S2.cuv = [-0.05, 0, 0.05].map(x => { const c = makeCuvette(rack); c.position.set(x, 0.03, 0); return c; }); S2.cuvHome = S2.cuv.map(c => c.position.clone());
+  makeTubeRack(R, -1.1, -0.2, [[0xe8f4ff, 0.08], [0xe8f4ff, 0.08], [0xfff2cc, 0.06], [0xe8f4ff, 0.07], [0xffffff, 0], [0xffffff, 0]]);
+  makeBeaker(R, -0.3, -0.15); makeBinder(R, 0.82, -0.08, -0.25);
+  box(R, 2.6, 0.04, 0.35, 0x8d999f, 0, 1.6, -2.75); [-0.9, -0.5, 0.2, 0.6, 1.0].forEach((x, i) => makeBottle(R, x, -2.75, ["", ""], [0xb8d8e8, 0xf0e2b6, 0xd8e8c8, 0xe8c8d0, 0xffffff][i]).position.set(x, 1.62, -2.75));
+  plane(R, 1.5, 0.5, textTex(["LABORATORIUM QC", "Wajib jas lab & sarung tangan"], 700, 230, "#7a5bb5", "#ffffff", 58), 1.8, 2.3, -2.93);
+}
+
+/* ---------- pengenceran ---------- */
+const S5 = {};
+function buildS5() {
+  const s = STATIONS.find(x => x.id === "s5"); const R = makeRoom(s, 180, { lab: true, deskW: 2.4, seat: [[0, 1.12, 0.3], [0, 0.86, -0.45]], ambient: "lab", wall: 0xeef0f4 });
+  S5.R = R;
+  S5.persed = makeFlask(R, 1.35, "200 mL · 0,5 mg/mL", 0xdcebff); S5.persed.g.position.set(-0.42, 0.785, -0.45); S5.persed.set(0.27 * 1.35); act(S5.persed.g, "label:persed");
+  S5.labu = makeFlask(R, 0.95, "50 mL", 0xa9d2f2); S5.labu.g.position.set(0.02, 0.785, -0.4); S5.labu.set(0.0005); act(S5.labu.g, "label:labu50");
+  const prack = new THREE.Group(); R.add(prack); prack.position.set(0.36, 0.785, -0.45); rbox(prack, 0.16, 0.02, 0.08, 0.005, 0x5b6b73, 0, 0.01, 0); box(prack, 0.012, 0.42, 0.012, 0x5b6b73, -0.07, 0.21, 0); box(prack, 0.16, 0.012, 0.03, 0x5b6b73, 0, 0.3, 0);
+  S5.pip = makePipette(R); S5.pipHome = new THREE.Vector3(0.36, 0.8, -0.45); S5.pip.g.position.copy(S5.pipHome); act(S5.pip.g, "pipet1");
+  const gu = new THREE.Group(); R.add(gu); gu.position.set(0.58, 0.785, -0.4); add(gu, lathe([[0, 0], [0.03, 0], [0.03, 0.008], [0.011, 0.012], [0.011, 0.25], [0.014, 0.255]], 1, glassMat(0.3)), 0, 0, 0); plane(gu, 0.04, 0.015, textTex("10 mL", 160, 60, "#ffffff", "#14232a", 40), 0, 0.13, 0.012); act(gu, "label:gelas");
+  const pt = new THREE.Group(); R.add(pt); pt.position.set(0.7, 0.79, -0.25); pt.rotation.z = Math.PI / 2; add(pt, new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0015, 0.12, 8), glassMat(0.35)), 0, 0, 0); sph(pt, 0.011, 0xd35400, 0, 0.07, 0).scale.y = 1.4;
+  S5.fase = makeBottle(R, 0.88, -0.45, ["Fase gerak", "air–metanol 3:1"]); S5.faseHome = S5.fase.position.clone(); act(S5.fase, "fase");
+  makeTubeRack(R, -0.85, -0.25, [[0xe8f4ff, 0.09], [0xe8f4ff, 0.09], [0xe8f4ff, 0.05], [0xffffff, 0], [0xffffff, 0], [0xffffff, 0]]);
+  makeBeaker(R, -0.15, -0.15, 0.03); makeBinder(R, -0.55, -0.1, 0.2);
+  const scale = new THREE.Group(); R.add(scale); scale.position.set(-0.85, 0.785, -0.6); rbox(scale, 0.3, 0.08, 0.32, 0.015, 0xeceff0, 0, 0.04, 0); cyl(scale, 0.07, 0.07, 0.006, 0xc5ccd0, 0, 0.083, 0.02, 24);
+   plane(scale, 0.14, 0.035, textTex("120,0 mg", 280, 70, "#0f2a33", "#7fe0d4", 44), 0, 0.045, 0.161);
+  plane(R, 1.5, 0.5, textTex(["LAB QC · KCKT", "Kerjakan dengan alat volumetrik kelas A"], 760, 250, "#7a5bb5", "#ffffff", 58), 1.6, 2.3, -2.93);
+  box(R, 2.4, 0.04, 0.35, 0x8d999f, -0.4, 1.6, -2.75);
+}
+async function pipetteRun() {
+  const p = S5.pip, top = (f, extra = 0) => { const v = new THREE.Vector3(); f.g.getWorldPosition(v); return [v.x - S5.R.position.x, 0.785 + 0.282 * f.s + 0.03 + extra, v.z]; };
+  const a = top(S5.persed); await moveObj(p.g, [S5.pipHome.x, S5.pipHome.y + 0.25, S5.pipHome.z], 400);
+  await moveObj(p.g, [a[0], a[1] + 0.05, a[2]], 650); await moveObj(p.g, [a[0], a[1] - 0.17, a[2]], 450);
+  await tween(900, k => p.liq.scale.y = 0.001 + k * 0.85); sfx("click"); await tween(300, k => p.liq.scale.y = 0.851 - k * 0.07);
+  await moveObj(p.g, [a[0], a[1] + 0.05, a[2]], 450);
+  const b = top(S5.labu); await moveObj(p.g, [b[0], b[1] + 0.05, b[2]], 650); await moveObj(p.g, [b[0], b[1] - 0.12, b[2]], 400);
+  await tween(1000, k => { p.liq.scale.y = 0.78 * (1 - k) + 0.001; S5.labu.set(0.012 * S5.labu.s * k + 0.0005); });
+  await moveObj(p.g, [b[0], b[1] + 0.06, b[2]], 400); await moveObj(p.g, [S5.pipHome.x, S5.pipHome.y + 0.25, S5.pipHome.z], 600); await moveObj(p.g, [S5.pipHome.x, S5.pipHome.y, S5.pipHome.z], 350);
+}
+async function fillRun() {
+  const f = S5.fase, l = S5.labu; const lp = l.g.position; const tgt = [lp.x + 0.09, 0.785 + 0.33, lp.z];
+  await moveObj(f, [f.position.x, f.position.y + 0.2, f.position.z], 400); await moveObj(f, tgt, 700);
+  await tween(500, k => f.rotation.z = 1.9 * k);
+  const y0 = l.level; await tween(2200, k => l.set(y0 + (l.markY - 0.006 - y0) * k));
+  await tween(400, k => f.rotation.z = 1.9 * (1 - k)); await moveObj(f, [S5.faseHome.x, S5.faseHome.y + 0.2, S5.faseHome.z], 700); await moveObj(f, [S5.faseHome.x, S5.faseHome.y, S5.faseHome.z], 300);
+  await tween(900, k => l.set(l.markY - 0.006 + 0.006 * k));
+}
+
+/* ---------- vaksin ---------- */
+const S3 = { vials: {}, boxes: {} };
+function vvmCanvas(stage, size = 128) { const cv = document.createElement("canvas"); cv.width = cv.height = size; const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, size, size); g.fillStyle = "#6b4b8a"; g.beginPath(); g.arc(size / 2, size / 2, size * 0.42, 0, 7); g.fill(); g.fillStyle = ["#f2ecf6", "#b39cc6", "#6b4b8a", "#2d1b3d"][stage - 1]; const s = size * 0.36; g.fillRect(size / 2 - s / 2, size / 2 - s / 2, s, s); return cv; }
+const VCOL = { mr: "#c0392b", dpt: "#2563a8", bcg: "#1f8a4c", td: "#a8701b" };
+function vialLabel(v) { const cv = document.createElement("canvas"); cv.width = 256; cv.height = 160; const g = cv.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 256, 160); g.fillStyle = VCOL[v.vac]; g.fillRect(0, 0, 256, 40); g.fillStyle = "#fff"; g.font = "800 28px system-ui"; g.fillText(LABELS[v.vac].title.replace("Vaksin ", ""), 10, 30); g.fillStyle = "#14232a"; g.font = "800 40px system-ui"; g.fillText(v.id, 14, 100); g.font = "600 18px system-ui"; g.fillText(v.batch, 14, 135); g.drawImage(vvmCanvas(v.stage, 90), 150, 52, 90, 90); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; return t; }
+function buildS3() {
+  const s = STATIONS.find(x => x.id === "s3"); const R = makeRoom(s, 220, { seat: [[0, 1.32, 0.7], [0, 0.6, -0.45]], ambient: "vaccine" });
+  const cb = new THREE.Group(); R.add(cb); cb.position.set(-0.25, 0.785, -0.5); S3.cb = cb;
+  rbox(cb, 0.62, 0.32, 0.42, 0.03, 0x2c6db5, 0, 0.16, 0); box(cb, 0.56, 0.02, 0.36, 0xeaf2fb, 0, 0.32, 0);
+  const lid = new THREE.Group(); lid.position.set(0, 0.32, -0.21); cb.add(lid); rbox(lid, 0.64, 0.07, 0.44, 0.03, 0x2c6db5, 0, 0.035, 0.22); S3.lid = lid;
+  plane(cb, 0.4, 0.1, textTex(["COLD BOX"], 400, 100, "#2c6db5", "#ffffff", 60), 0, 0.17, 0.212); act(cb, "coldbox");
+  const th = new THREE.Group(); R.add(th); th.position.set(0.25, 0.785, -0.62); rbox(th, 0.12, 0.07, 0.04, 0.01, 0xf4f4f4, 0, 0.035, 0);
+  S3.thermTex = textTex(["--.- °C"], 256, 128, "#cfe8d5", "#14232a", 70); plane(th, 0.1, 0.05, S3.thermTex, 0, 0.04, 0.021);
+  STATIONS.find(x => x.id === "s3").steps.find(x => x.id === "vvm").vials.forEach((v, i) => {
+    const g = new THREE.Group(); cb.add(g); g.position.set(-0.2 + i * 0.13, 0.33, 0.02); g.visible = false;
+    add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.11, 20), glassMat(0.45)), 0, 0.055, 0);
+    add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 16), liqMat(v.vac === "dpt" ? 0xf2f2f2 : 0xf3e1c4, 0.85)), 0, 0.03, 0);
+    cyl(g, 0.028, 0.028, 0.025, 0x8b97a0, 0, 0.122, 0); cyl(g, 0.03, 0.03, 0.015, parseInt(VCOL[v.vac].slice(1), 16), 0, 0.14, 0);
+    add(g, new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.06, 20, 1, true, -Math.PI / 2, Math.PI), new THREE.MeshBasicMaterial({ map: vialLabel(v), toneMapped: false })), 0, 0.055, 0);
+    act(g, "vial:" + v.id); S3.vials[v.id] = g; });
+  [["mr", 0xc0392b], ["bcg", 0x1f8a4c], ["dpt", 0x2563a8], ["td", 0xa8701b]].forEach(([k, c], i) => { const b = new THREE.Group(); R.add(b); b.position.set(0.25 + (i % 2) * 0.2, 0.83, -0.25 + Math.floor(i / 2) * 0.14);
+    rbox(b, 0.16, 0.09, 0.1, 0.008, 0xffffff, 0, 0, 0); plane(b, 0.15, 0.06, textTex([LABELS[k].title.replace("Vaksin ", "")], 300, 120, hexCss(c), "#ffffff", 54), 0, 0, 0.051); act(b, "label:" + k); S3.boxes[k] = b; });
+  makeBinder(R, -0.78, -0.22, 0.3);
+  S3.boxHome = Object.fromEntries(Object.entries(S3.boxes).map(([k, b]) => [k, b.position.clone()]));
+  const fr = new THREE.Group(); R.add(fr); fr.position.set(1.45, 0, -2.25); S3.fr = fr;
+  rbox(fr, 1.2, 0.85, 0.7, 0.03, 0xf6f8f8, 0, 0.425, 0); box(fr, 1.1, 0.02, 0.6, 0xbfd0d6, 0, 0.85, 0);
+  box(fr, 0.03, 0.55, 0.56, 0xb9c4c9, -0.53, 0.55, 0);
+  const flid = new THREE.Group(); flid.position.set(0, 0.86, -0.35); fr.add(flid); rbox(flid, 1.22, 0.06, 0.72, 0.02, 0xeef2f2, 0, 0.03, 0.36); S3.flid = flid;
+  plane(fr, 0.5, 0.12, textTex(["LEMARI ES VAKSIN", "2–8 °C"], 500, 120, "#f6f8f8", "#2563a8", 48), 0, 0.65, 0.352);
+  plane(fr, 0.4, 0.09, textTex(["← evaporator"], 400, 90, "#f6f8f8", "#5b6b73", 46), -0.3, 0.3, 0.352);
+  S3.zones = { near: [[-0.36, 0.62, -0.12], [-0.36, 0.62, 0.12]], far: [[0.32, 0.62, -0.12], [0.32, 0.62, 0.12]] };
+  plane(R, 1.6, 0.55, textTex(["GUDANG FARMASI", "Rantai dingin 2–8 °C"], 700, 240, "#2563a8", "#ffffff", 60), -1.4, 2.3, -2.93);
+  const shelf = new THREE.Group(); R.add(shelf); shelf.position.set(-2.6, 0, -1.2); shelf.rotation.y = Math.PI / 2;
+  [0.4, 0.9, 1.4].forEach(y => box(shelf, 1.4, 0.04, 0.4, 0x8d999f, 0, y, 0)); [0.45, 0.95, 1.45].forEach((y, j) => [-0.5, -0.2, 0.15, 0.45].forEach((x, i) => rbox(shelf, 0.22, 0.16, 0.25, 0.01, [0xd8c49a, 0xc8d8e0, 0xe0c8c8][(i + j) % 3], x, y + 0.08, 0)));
+}
+function redrawTherm(t) { const cv = S3.thermTex.image, g = cv.getContext("2d"); g.fillStyle = "#cfe8d5"; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = "#14232a"; g.font = "800 70px system-ui"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(t, cv.width / 2, cv.height / 2); S3.thermTex.needsUpdate = true; }
+
+/* ---------- rest room ---------- */
+function buildRest() {
+  const s = STATIONS.find(x => x.id === "rest"); const R = makeRoom(s, 260, { desk: false, seat: [[0, 1.15, 0.9], [0, 1.1, -2]], ambient: "room", wall: 0xe6efe9 });
+  const b = new THREE.Group(); R.add(b); b.position.set(0, 0, -1.8); rbox(b, 2, 0.08, 0.5, 0.02, 0x6b7f88, 0, 0.45, 0); rbox(b, 2, 0.5, 0.06, 0.02, 0x6b7f88, 0, 0.72, -0.24);
+  const wd = new THREE.Group(); R.add(wd); wd.position.set(2.3, 0, -2.2); rbox(wd, 0.4, 1.0, 0.4, 0.03, 0xf4f6f6, 0, 0.5, 0); add(wd, lathe([[0, 0], [0.13, 0], [0.15, 0.05], [0.15, 0.35], [0.06, 0.42], [0.05, 0.45]], 1, new THREE.MeshPhysicalMaterial({ color: 0x9fd3f0, transparent: true, opacity: 0.5, roughness: 0.05, envMap: ENV })), 0, 1.0, 0);
+  plane(R, 1.6, 0.6, textTex(["RUANG ISTIRAHAT", "Tarik napas · minum air · siapkan diri"], 760, 280, "#5b6b73", "#ffffff", 58), 0, 2.2, -2.93);
+  const plant = new THREE.Group(); R.add(plant); plant.position.set(-2.3, 0, -2.3); cyl(plant, 0.2, 0.16, 0.4, 0x8a5a3c, 0, 0.2, 0); sph(plant, 0.35, 0x3f7f4a, 0, 0.7, 0);
+}
+buildS1(); buildS2(); buildS5(); buildS3(); buildRest();
+
+/* ================= STATE & UI ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+let SAVE = { best: {} }; try { SAVE = Object.assign(SAVE, JSON.parse(localStorage.getItem("ruangosce-v2") || "{}")); } catch (e) {}
+const persist = () => { try { localStorage.setItem("ruangosce-v2", JSON.stringify(SAVE)); } catch (e) {} };
+const G = { mode: "ujian", phase: "intro", st: null, step: 0, res: {}, timer: null, busy: false, sel: null, circuit: null, hints: {} };
+const stById = id => STATIONS.find(s => s.id === id);
+
+function hint(t) { const h = $("#hint"); h.textContent = t || ""; h.hidden = !t; }
+function panel(html) { const p = $("#panel"); p.innerHTML = html; p.hidden = !html; p.scrollTop = 0; }
+function modal(html) { $("#modalBody").innerHTML = html; $("#modal").hidden = false; }
+function closeModal() { $("#modal").hidden = true; if (G.phase === "corridor" && !G.busy && !G.circuit) setTimeout(() => { if (G.phase === "corridor" && $("#modal").hidden && !G.busy) corridorPanel(); }, 300); }
+$("#modal").addEventListener("click", e => { if (e.target.id === "modal" && !G.lockModal) closeModal(); if (e.target.dataset && e.target.dataset.close !== undefined) closeModal(); });
+function fade(on) { $("#fade").classList.toggle("on", on); return wait(380); }
+const fmt = s => String(Math.floor(Math.max(0, s) / 60)).padStart(2, "0") + ":" + String(Math.floor(Math.max(0, s) % 60)).padStart(2, "0");
+function setHud() {
+  const s = G.st, inRoom = s && (G.phase === "room" || G.phase === "seated" || G.phase === "rest");
+  $("#hud").hidden = !inRoom; $("#hudLit").hidden = !(s && LIT[s.id]); $("#hudTime").classList.toggle("warn3", !!(G.timer && G.timer.kind === "work" && G.timer.left <= 180)); $("#hudExit").textContent = s?.rest ? "Lewati istirahat" : "Keluar";
+  if (!s) return; $("#hudTitle").textContent = s.rest ? "Ruang istirahat" : `Stasiun ${s.no} · ${s.title}`;
+  $("#hudLabel").textContent = s.rest ? "ISTIRAHAT" : "WAKTU UJIAN";
+  $("#hudTime").textContent = fmt(G.timer ? G.timer.left : 0); $("#hudTime").classList.toggle("warn", G.timer && G.timer.left <= 60);
+  $("#hudStep").textContent = s.rest ? "" : `Tugas ${Math.min(G.step + 1, s.steps.length)}/${s.steps.length}${G.mode === "latihan" ? " · Latihan" : ""}`;
+}
+function updateDoors() { STATIONS.forEach(s => { const b = SAVE.best[s.id], L = DOORS[s.id].lamp.material; L.color.set(b == null ? 0x9aa4ab : b >= GAME.pass ? 0x22a35a : 0xe0862a); L.emissive.set(b == null ? 0 : b >= GAME.pass ? 0x0d4a26 : 0x5a3200); }); }
+
+/* ---------- timers ---------- */
+function startTimer(kind, sec, onEnd) { G.timer = { kind, left: sec, onEnd, lastTick: Math.ceil(sec) }; }
+function vig(on) { const v = document.getElementById("vig"); if (v) v.classList.toggle("on", on); }
+function stopTimer() { G.timer = null; tension(false); vig(false); }
+function tickTimer(dt) {
+  const T = G.timer; if (!T) return; T.left -= dt;
+  const whole = Math.ceil(T.left);
+  if (whole !== T.lastTick) { T.lastTick = whole;
+    if ((T.kind === "work" || T.kind === "read") && whole <= 10 && whole > 0) { sfx("tick"); sfx("beat"); tension(true, 1 - whole / 10); vig(true);
+      const el = T.kind === "read" ? $("#readT") : $("#hudTime"); if (el) { el.classList.add("pulse"); setTimeout(() => el.classList.remove("pulse"), 300); } }
+    if (T.kind === "work" && whole === 180) { sfx("warn"); announce("Waktu tersisa tiga menit"); $("#hudTime").classList.add("warn3"); }
+    if (T.kind === "read") { const r = $("#readT"); if (r) { r.textContent = fmt(Math.max(0, T.left)); r.classList.toggle("warn", T.left <= 10); } }
+    setHud(); }
+  if (T.left <= 0) { const f = T.onEnd; stopTimer(); f && f(); }
+}
+
+/* ---------- speech ---------- */
+let bubbleTarget = null, typeTimer = null;
+function say(text) {
+  if (!patient || G.st?.id !== "s1") return;
+  const b = $("#bubble"); b.hidden = false; b.querySelector("b").textContent = "Pak Hendra"; const span = b.querySelector("span"); span.textContent = "";
+  bubbleTarget = patient.head; clearInterval(typeTimer); let i = 0; patient.talking = 1;
+  const spoke = speak(text, () => { patient.talking = 0; });
+  typeTimer = setInterval(() => { span.textContent = text.slice(0, ++i); if (i >= text.length) { clearInterval(typeTimer); if (!spoke) setTimeout(() => patient.talking = 0, 300); } }, REDUCED ? 1 : 28);
+}
+function hideBubble() { $("#bubble").hidden = true; bubbleTarget = null; if (patient) patient.talking = 0; try { speechSynthesis.cancel(); } catch (e) {} }
+
+/* ---------- corridor ---------- */
+function corridorPanel() {
+  if (G.circuit) return;
+  if (G.mode === "latihan") hint("Ketuk pintu stasiun, atau pilih di bawah. Geser layar untuk menoleh.");
+  panel(`<div class="ph"><span class="eyebrow">KORIDOR · MODE ${G.mode.toUpperCase()}</span><button class="link" id="toCircuit">Mulai sirkuit 10 stasiun</button></div>
+  <div class="chips">${STATIONS.map(s => { const b = SAVE.best[s.id]; return `<button class="chip ${s.built ? "" : "off"}" data-door="${s.id}"><b>${s.rest ? "Istirahat" : "Stasiun " + s.no}</b><span>${esc(s.built ? s.title : "Segera hadir")}</span>${b != null ? `<em class="${b >= GAME.pass ? "ok" : "bad"}">${b}%</em>` : ""}</button>`; }).join("")}</div>`);
+  document.querySelectorAll("[data-door]").forEach(b => b.onclick = () => { if (!G.busy && $("#modal").hidden) goDoor(b.dataset.door); });
+  $("#toCircuit").onclick = startCircuit;
+}
+function toCorridor(fromDoor) { $("#lit").hidden = true;
+  Object.values(ROOMS).forEach(r => r.group.visible = false); corridor.visible = true; scene.background.set(0xdfe6e8);
+  G.phase = "corridor"; G.st = null; stopTimer(); setHud(); panel(""); hideBubble(); updateDoors(); ambience(true, "corridor");
+  if (fromDoor) { const sp = doorSpots[fromDoor]; camera.position.set(sp.x * 0.4, 1.6, sp.z); camLook.set(0, 1.5, sp.z - 6); } else { camera.position.set(0, 1.6, 6.2); camLook.set(0, 1.45, -6); }
+  corridorPanel();
+}
+
+async function goDoor(id) {
+  if (G.busy) return; const s = stById(id);
+  if (!s.built) { modal(`<span class="eyebrow">STASIUN ${s.no} · ${esc(s.area.toUpperCase())}</span><h2>${esc(s.title)}</h2><p class="muted">Stasiun ini disiapkan untuk tahap pengembangan berikutnya.</p><div class="row"><button class="btn pri" data-close>Tutup</button></div>`); return; }
+  G.busy = true; hint(""); panel("");
+  const sp = doorSpots[id]; await moveCam([sp.x * 0.42, 1.6, sp.z], [sp.x, 1.45, sp.z], 1300, true); G.busy = false;
+  if (s.rest) return enterRoom(s);
+  sfx("page"); sfx("bell"); speak("Waktu membaca dimulai.", null, "proctor");
+  const best = SAVE.best[id], canEarly = true;
+  G.lockModal = true;
+  modal(`<div class="readhead"><span class="eyebrow" style="color:${hexCss(s.color)}">STASIUN ${s.no} · ${esc(s.area.toUpperCase())}</span><span class="readt" id="readT">${fmt(GAME.readSec)}</span></div><h2>${esc(s.title)}</h2><div class="sheet">${s.sheet}</div>
+    <p class="small muted">Waktu baca 1 menit. Pintu terbuka otomatis saat bel berbunyi, atau lewati waktu baca bila sudah siap.</p>
+    ${best != null ? `<p class="small muted">Skor terbaik: ${best}%</p>` : ""}
+    <div class="row"><button class="btn pri" id="enter">Lewati waktu baca & masuk</button>${G.circuit ? "" : `<button class="btn" id="back">Kembali ke koridor</button>`}</div>`);
+  startTimer("read", GAME.readSec, () => { G.lockModal = false; closeModal(); sfx("bell"); speak("Waktu membaca habis. Silakan masuk.", null, "proctor"); enterRoom(s); });
+  const e = $("#enter"); if (e) e.onclick = () => { stopTimer(); G.lockModal = false; closeModal(); enterRoom(s); };
+  const bk = $("#back"); if (bk) bk.onclick = () => { stopTimer(); G.lockModal = false; closeModal(); moveCam([0, 1.6, Math.min(6.2, camera.position.z + 2)], [0, 1.45, -6], 900, true); };
+}
+
+async function enterRoom(s) {
+  G.busy = true; const d = DOORS[s.id], sp = doorSpots[s.id]; sfx("door");
+  await tween(650, k => d.pivot.rotation.y = -1.4 * k);
+  const fp = fade(true); await moveCam([sp.x * 1.15, 1.6, sp.z], [sp.x * 2, 1.5, sp.z], 600, true); await fp; d.pivot.rotation.y = 0;
+  corridor.visible = false; const R = ROOMS[s.id]; R.group.visible = true; scene.background.set(0xe9efed);
+  resetStation(s); R.chair.visible = true;
+  const ox = R.group.position.x; camera.position.set(ox, 1.6, 2.45); camLook.set(ox, 1.2, -1);
+  G.st = s; G.step = 0; G.res = {}; G.hints = {}; ambience(true, R.kind);
+  if (s.rest) { G.phase = "rest"; startTimer("rest", GAME.restSec, () => leave(true)); setHud(); await fade(false); G.busy = false; panel(`<h3>Istirahat</h3><p class="muted">Gunakan waktu ini untuk menenangkan diri. Stasiun berikutnya dimulai setelah bel.</p><div class="row"><button class="btn pri" id="skipRest">Lewati istirahat</button></div>`); $("#skipRest").onclick = () => leave(false); return; }
+  G.phase = "room"; startTimer("work", GAME.workSec, () => leave(true)); setHud(); await fade(false); G.busy = false;
+  if (G.mode === "latihan") hint("Ketuk kursi untuk duduk");
+  if (s.id === "s1") setTimeout(() => say("Permisi… silakan duduk dulu."), 600);
+}
+function resetStation(s) {
+  hideBubble();
+  if (s.id === "s2") { drawScreen("off"); drawDiss(false); S2.spc.lid.rotation.x = 0; S2.spc.pw.material.emissive.set(0); S2.cuv.forEach((c, i) => { S2.rack.attach(c); c.position.copy(S2.cuvHome[i]); }); S2.running = false; S2.ds.paddles.forEach(p => p.lq.visible = false); }
+  if (s.id === "s5") { S5.labu.set(0.0005); S5.pip.liq.scale.y = 0.001; S5.pip.g.position.copy(S5.pipHome); S5.fase.position.copy(S5.faseHome); S5.fase.rotation.set(0, 0, 0); }
+  if (s.id === "s3") { S3.lid.rotation.x = 0; S3.flid.rotation.x = 0; Object.values(S3.vials).forEach(v => { v.visible = false; v.position.y = 0.33; }); redrawTherm("--.- °C");
+    Object.entries(S3.boxes).forEach(([k, b]) => { ROOMS.s3.group.attach(b); b.position.copy(S3.boxHome[k]); b.rotation.set(0, 0, 0); }); S3.zoneUse = { near: 0, far: 0 }; }
+}
+function portraitK() { return Math.min(1, Math.max(0, (1 - camera.aspect) / 0.55)); }
+function seatPos(id) { const p = ROOMS[id].seat[0], k = portraitK(), lab = id === "s2" || id === "s5"; return [p[0], p[1] + k * (lab ? 0.35 : 0.3), p[2] + k * (lab ? 1.15 : 0.85)]; }
+async function sit() {
+  if (G.phase !== "room" || G.busy) return; G.busy = true; hint("");
+  const R = ROOMS[G.st.id], ox = R.group.position.x, l = R.seat[1], q = seatPos(G.st.id);
+  await moveCam([ox, 1.6, 1.6], [ox, 1.2, -1], 500, true); R.chair.visible = false; await moveCam([ox + q[0], q[1], q[2]], [ox + l[0], l[1], l[2]], 650);
+  G.phase = "seated"; G.busy = false; setHud(); showStep();
+}
+async function lookAt(local, dur = 600, posOverride) { const R = ROOMS[G.st.id], ox = R.group.position.x, p = posOverride || seatPos(G.st.id); await moveCam([ox + p[0], p[1], p[2]], [ox + local[0], local[1], local[2]], dur); }
+const FOCUS = { s2: { cond: [-0.62, 0.95, -0.6], default: [0, 0.72, -0.5] } };
+
+/* ---------- step engine ---------- */
+const curStep = () => G.st.steps[G.step];
+function stepHead(s) {
+  return `<div class="ph"><span class="eyebrow">${esc(s.skill)}</span><span class="small muted">Tugas ${G.step + 1}/${G.st.steps.length}</span></div><p class="prompt">${esc(s.prompt)}</p>
+  ${G.mode === "latihan" && s.hint ? `<div class="hintrow"><button class="link" id="hintBtn">Minta petunjuk</button><div class="hintbox" id="hintBox" hidden>${esc(s.hint)}</div></div>` : ""}`;
+}
+function bindHint(s) { const b = $("#hintBtn"); if (b) b.onclick = () => { $("#hintBox").hidden = false; b.remove(); G.hints[s.id] = true; sfx("click"); }; }
+async function showStep() {
+  setHud(); const s = curStep();
+  if (!s) { panel(`<h3>Semua tugas selesai</h3><p class="muted">Anda boleh keluar sekarang atau menunggu bel.</p><div class="row"><button class="btn pri" id="leave">Keluar ruangan</button></div>`); $("#leave").onclick = () => leave(false); return; }
+  if (G.st.id === "s1" && s.say0) say(s.say0);
+  if (G.st.id === "s2") { const f = FOCUS.s2[s.id] || FOCUS.s2.default; lookAt(f, 700); }
+  if (G.st.id === "s3") { if (s.kind === "place") { lookAt([1.15, 0.35, -2.1]); tween(700, k => S3.flid.rotation.x = -1.25 * k); } else if (G.step > 0 && G.st.steps[G.step - 1].kind === "place") lookAt(ROOMS.s3.seat[1]); }
+  if (G.st.id === "s5") { if (s.zoom === "neck") { const v = S5.labu.g.position; await lookAt([v.x, 0.785 + S5.labu.markY, v.z], 900, [v.x, 0.785 + S5.labu.markY + 0.004, v.z + 0.13]); } else if (G.step > 0 && G.st.steps[G.step - 1].zoom) lookAt(ROOMS.s5.seat[1]); }
+  const head = stepHead(s);
+  if (s.kind === "choice") {
+    panel(head + `<div class="opts">${s.options.map((o, i) => `<button class="opt" data-i="${i}"><span class="k">${"ABCDE"[i]}</span><span>${esc(o.t)}</span></button>`).join("")}</div>`); bindHint(s);
+    $("#panel").querySelectorAll("[data-i]").forEach(b => b.onclick = () => { const o = s.options[+b.dataset.i]; sfx("click");
+      G.res[s.id] = { score: o.ok ? 1 : 0, ans: o.t }; $("#panel").querySelectorAll(".opt").forEach(x => x.disabled = true); b.classList.add("chosen");
+      if (o.say) say(o.say); if (s.anim === "dissolve") runDissolution(); nextBtn(); });
+  } else if (s.kind === "multi") {
+    panel(head + `<p class="small muted">Pilih tepat ${s.pick}.</p><div class="opts">${s.options.map((o, i) => `<label class="opt chk"><input type="checkbox" data-i="${i}"><span>${esc(o.t)}</span></label>`).join("")}</div><div class="row"><button class="btn pri" id="sub" disabled>Kirim jawaban</button></div>`); bindHint(s);
+    const bx = [...$("#panel").querySelectorAll("input")];
+    bx.forEach(b => b.onchange = () => { sfx("click"); const n = bx.filter(x => x.checked).length; $("#sub").disabled = n !== s.pick; bx.forEach(x => { if (!x.checked) x.disabled = n >= s.pick; }); });
+    $("#sub").onclick = async () => { const pk = bx.filter(x => x.checked).map(x => +x.dataset.i); const good = pk.filter(i => s.options[i].ok).length;
+      G.res[s.id] = { score: good / s.pick, ans: pk.map(i => s.options[i].t).join("; ") }; bx.forEach(x => x.disabled = true); $("#sub").remove();
+      const lines = pk.map(i => s.options[i].say).filter(Boolean);
+      if (lines.length) for (const l of lines) { say(l); await wait(Math.min(5200, 1200 + l.length * 55)); } else if (s.after) say(s.after);
+      nextBtn(); };
+  } else if (s.kind === "action") {
+    panel(head);
+    bindHint(s);
+  } else if (s.kind === "input") {
+    panel(head + `<div class="row"><label for="num" class="sr">Jawaban</label><input id="num" inputmode="decimal" placeholder="angka" autocomplete="off"><span class="unit">${esc(s.unit)}</span><button class="btn pri" id="sub">Kirim</button></div>`); bindHint(s);
+    const go = () => { const v = parseFloat(($("#num").value || "").replace(",", ".")); if (isNaN(v)) { $("#num").focus(); return; } sfx("click");
+      G.res[s.id] = { score: v >= s.min && v <= s.max ? 1 : 0, ans: String(v).replace(".", ",") + " " + s.unit }; $("#sub").disabled = true; $("#num").disabled = true; nextBtn(); };
+    $("#sub").onclick = go; $("#num").onkeydown = e => { if (e.key === "Enter") go(); };
+  } else if (s.kind === "vvm") { tween(600, k => S3.lid.rotation.x = -1.3 * k); Object.values(S3.vials).forEach(v => v.visible = true); G.sel = {}; renderVVM(head, s);
+  } else if (s.kind === "place") { G.sel = {}; renderPlace(head, s); }
+}
+function nextBtn() { const r = document.createElement("div"); r.className = "row"; r.innerHTML = `<button class="btn pri" id="nx">${G.step < G.st.steps.length - 1 ? "Lanjut ke tugas berikutnya" : "Selesai"}</button>`; $("#panel").appendChild(r); $("#nx").focus({ preventScroll: true }); $("#nx").onclick = () => { G.step++; showStep(); }; }
+function renderVVM(head, s) {
+  panel(head + `<div class="list">${s.vials.map(v => `<div class="li"><button class="vbtn" data-v="${v.id}"><canvas width="44" height="44" data-c="${v.id}"></canvas><span><b>Vial ${v.id}</b><br><span class="small muted">${LABELS[v.vac].title.replace("Vaksin ", "")} · ${v.batch} · ED ${v.ed}</span></span></button>
+    <div class="seg"><button data-a="${v.id}" data-k="1" class="${G.sel[v.id] === true ? "on" : ""}">Terima</button><button data-a="${v.id}" data-k="0" class="${G.sel[v.id] === false ? "on" : ""}">Tolak</button></div></div>`).join("")}</div>
+    <div class="row"><button class="btn pri" id="sub" ${Object.keys(G.sel).length < 4 ? "disabled" : ""}>Kirim keputusan</button></div>`); bindHint(s);
+  $("#panel").querySelectorAll("canvas[data-c]").forEach(c => { const v = s.vials.find(x => x.id === c.dataset.c); c.getContext("2d").drawImage(vvmCanvas(v.stage, 44), 0, 0); });
+  $("#panel").querySelectorAll("[data-v]").forEach(b => b.onclick = () => showVVM(b.dataset.v));
+  $("#panel").querySelectorAll("[data-a]").forEach(b => b.onclick = () => { sfx("click"); G.sel[b.dataset.a] = b.dataset.k === "1"; const hb = G.hints[s.id]; renderVVM(head, s); if (hb) { const x = $("#hintBox"); if (x) x.hidden = false; const y = $("#hintBtn"); if (y) y.remove(); } });
+  $("#sub").onclick = () => { const good = s.vials.filter(v => G.sel[v.id] === v.ok).length; G.res[s.id] = { score: good / 4, ans: s.vials.map(v => `${v.id}: ${G.sel[v.id] ? "terima" : "tolak"}`).join(", ") };
+    s.vials.filter(v => !G.sel[v.id]).forEach(v => tween(500, k => S3.vials[v.id].position.y = 0.33 + 0.25 * k).then(() => S3.vials[v.id].visible = false)); $("#sub").remove(); nextBtn(); };
+}
+function renderPlace(head, s) {
+  panel(head + `<div class="list">${s.items.map(it => `<div class="li"><button class="vbtn" data-lb="${it.vac}"><span class="sw" style="background:${VCOL[it.vac]}"></span><b>${LABELS[it.vac].title}</b></button>
+    <div class="seg"><button data-p="${it.vac}" data-z="near" class="${G.sel[it.vac] === "near" ? "on" : ""}">Dekat evaporator</button><button data-p="${it.vac}" data-z="far" class="${G.sel[it.vac] === "far" ? "on" : ""}">Jauh</button></div></div>`).join("")}</div>
+    <div class="row"><button class="btn pri" id="sub" ${Object.keys(G.sel).length < 4 ? "disabled" : ""}>Simpan ke lemari es</button></div>`); bindHint(s);
+  $("#panel").querySelectorAll("[data-lb]").forEach(b => b.onclick = () => showLabel(b.dataset.lb));
+  $("#panel").querySelectorAll("[data-p]").forEach(b => b.onclick = () => { sfx("click"); G.sel[b.dataset.p] = b.dataset.z; renderPlace(head, s); });
+  $("#sub").onclick = async () => { const good = s.items.filter(it => G.sel[it.vac] === it.zone).length;
+    G.res[s.id] = { score: good / 4, ans: s.items.map(it => `${LABELS[it.vac].title.replace("Vaksin ", "")}: ${G.sel[it.vac] === "near" ? "dekat" : "jauh"}`).join(", ") }; $("#sub").remove();
+    for (const it of s.items) { const b = S3.boxes[it.vac]; S3.fr.attach(b); const z = G.sel[it.vac]; const t = S3.zones[z][S3.zoneUse[z]++ % 2]; const p0 = b.position.clone(), r0 = b.rotation.y; const mid = new THREE.Vector3((p0.x + t[0]) / 2, Math.max(p0.y, t[1]) + 0.5, (p0.z + t[2]) / 2);
+      await tween(550, k => { const a = p0.clone().lerp(mid, k), c = mid.clone().lerp(new THREE.Vector3(...t), k); b.position.lerpVectors(a, c, k); b.rotation.y = r0 * (1 - k); }); }
+    await tween(500, k => S3.flid.rotation.x = -1.25 * (1 - k)); sfx("door"); nextBtn(); };
+}
+function runDissolution() { S2.running = true; S2.dStart = performance.now(); S2.ds.paddles.forEach(p => p.lq.visible = true); sfx("click"); }
+
+/* ---------- 3D actions ---------- */
+async function doAction(id) {
+  const s = curStep(); if (!s || s.kind !== "action" || s.target !== id || G.busy || G.phase !== "seated") return false;
+  G.busy = true; hint("");
+  if (id === "power") { S2.spc.pw.material.emissive.set(0x0d6a33); sfx("click"); drawScreen("warm"); await wait(900); }
+  if (id === "baku") { await cuvetteRun(0); drawScreen("spectrum"); sfx("ok"); }
+  if (id === "sampel") { drawScreen("zero"); await cuvetteRun(1); await wait(400); await cuvetteRun(2); drawScreen("result"); sfx("ok"); }
+  if (id === "coldbox") { sfx("door"); await tween(600, k => S3.lid.rotation.x = -1.3 * k); redrawTherm("3,1 °C"); await wait(300); }
+  if (id === "pipet1") await pipetteRun();
+  if (id === "fase") await fillRun();
+  G.res[s.id] = { score: 1, ans: "Dilakukan" };
+  const d = document.createElement("div"); d.className = "done"; d.textContent = "✓ " + s.done; $("#panel").appendChild(d); G.busy = false; nextBtn(); return true;
+}
+async function cuvetteRun(i) {
+  const c = S2.cuv[i], sp = S2.spc; const home = S2.cuvHome[i].clone();
+  await tween(450, k => sp.lid.rotation.x = -1.2 * k);
+  sp.sp.attach(c); const p0 = c.position.clone(), up = p0.clone().setY(p0.y + 0.3), tgt = new THREE.Vector3(0.24, 0.29, -0.02), up2 = tgt.clone().setY(0.55);
+  await tween(350, k => c.position.lerpVectors(p0, up, k)); await tween(450, k => c.position.lerpVectors(up, up2, k)); await tween(300, k => c.position.lerpVectors(up2, tgt, k));
+  sfx("click"); await tween(350, k => sp.lid.rotation.x = -1.2 * (1 - k)); await wait(450); await tween(350, k => sp.lid.rotation.x = -1.2 * k);
+  await tween(350, k => c.position.lerpVectors(tgt, up2, k)); S2.rack.attach(c); const b0 = c.position.clone(); await tween(500, k => c.position.lerpVectors(b0, home, k)); await tween(300, k => sp.lid.rotation.x = -1.2 * (1 - k));
+}
+
+/* ---------- literature viewer ---------- */
+const LV = { set: null, i: 0, z: 1 };
+function openLit() {
+  const st = G.st; if (!st || !LIT[st.id]) return; LV.set = LIT[st.id]; LV.i = LV.i && LV.cur === st.id ? LV.i : 0; LV.cur = st.id; sfx("page");
+  $("#lit").hidden = false; $("#litTitle").textContent = LV.set.title; renderLit();
+}
+function renderLit() { const P = LV.set.pages[LV.i]; $("#litNo").textContent = `Hal. ${LV.i + 1}/${LV.set.pages.length}`; $("#litCap").textContent = P.cap;
+  $("#litPage").innerHTML = P.img ? `<img src="${P.img}" alt="${esc(P.cap)}" style="width:${Math.round(LV.z * 100)}%">` : `<div class="paper" style="font-size:${Math.round(LV.z * 14)}px">${P.html}<p class="src">${esc(P.cap)}</p></div>`;
+  $("#litPage").scrollTop = 0; $("#litPrev").disabled = LV.i === 0; $("#litNext").disabled = LV.i === LV.set.pages.length - 1;
+  $("#litList").innerHTML = LV.set.pages.map((p, k) => `<button data-lp="${k}" class="${k === LV.i ? "on" : ""}">${k + 1}</button>`).join(""); document.querySelectorAll("[data-lp]").forEach(b => b.onclick = () => { LV.i = +b.dataset.lp; sfx("page"); renderLit(); }); }
+$("#litPrev").onclick = () => { if (LV.i > 0) { LV.i--; sfx("page"); renderLit(); } };
+$("#litNext").onclick = () => { if (LV.i < LV.set.pages.length - 1) { LV.i++; sfx("page"); renderLit(); } };
+$("#litZin").onclick = () => { LV.z = Math.min(2.4, LV.z + 0.2); renderLit(); };
+$("#litZout").onclick = () => { LV.z = Math.max(0.8, LV.z - 0.2); renderLit(); };
+$("#litClose").onclick = () => { $("#lit").hidden = true; };
+
+/* ---------- labels ---------- */
+function showLabel(k) { const L = LABELS[k]; if (!L) return; sfx("page"); modal(`<span class="eyebrow">LABEL / ETIKET</span><h2>${esc(L.title)}</h2><table>${L.rows.map(r => `<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")}</table><div class="row"><button class="btn pri" data-close>Tutup</button></div>`); }
+function showVVM(id) { const v = stById("s3").steps.find(s => s.id === "vvm").vials.find(x => x.id === id); sfx("page");
+  modal(`<span class="eyebrow">VIAL ${v.id} · ${esc(LABELS[v.vac].title)}</span><h2>Vaccine Vial Monitor</h2><div class="vvmbig"><canvas id="vbig" width="200" height="200"></canvas><div class="small"><p>Batch <b>${v.batch}</b> · ED <b>${v.ed}</b></p></div></div><table>${LABELS[v.vac].rows.map(r => `<tr><th>${esc(r[0])}</th><td>${esc(r[1])}</td></tr>`).join("")}</table><div class="row"><button class="btn pri" data-close>Tutup</button></div>`);
+  $("#vbig").getContext("2d").drawImage(vvmCanvas(v.stage, 200), 0, 0); }
+const refHtml = keys => (keys || []).map(k => REF[k]).filter(Boolean).map(r => `<li>${r.u ? `<a href="${r.u}" target="_blank" rel="noopener">${esc(r.t)}</a>` : esc(r.t)}</li>`).join("");
+
+/* ---------- exit & scoring ---------- */
+function exitRoom() {
+  if (G.busy) return; const s = G.st; if (!s) return;
+  if (s.rest) return leave(false);
+  if (G.step < s.steps.length) { modal(`<h2>Keluar sebelum selesai?</h2><p class="muted">Tugas yang belum dikerjakan dinilai 0.</p><div class="row"><button class="btn pri" id="yes">Ya, keluar</button><button class="btn" data-close>Lanjutkan ujian</button></div>`); $("#yes").onclick = () => { closeModal(); leave(false); }; return; }
+  leave(false);
+}
+async function leave(timeUp) {
+  if (G.leaving) return; G.leaving = true; G.busy = true; stopTimer(); panel(""); hint(""); hideBubble(); G.lockModal = false; closeModal();
+  const s = G.st, R = ROOMS[s.id], ox = R.group.position.x;
+  if (timeUp) { sfx("bell"); if (!s.rest) { speak("Waktu habis. Hentikan pekerjaan dan tinggalkan stasiun.", null, "proctor"); modal(`<h2>Waktu habis</h2><p>Bel berbunyi. Hentikan pekerjaan dan tinggalkan stasiun.</p>`); await wait(1700); closeModal(); } }
+  G.phase = "exiting";
+  await moveCam([ox, 1.6, 1.4], [ox, 1.5, 3], 900, true); sfx("door");
+  await tween(600, k => R.door.pivot.rotation.y = 1.4 * k);
+  const fp = fade(true); await moveCam([ox, 1.6, 2.7], [ox, 1.5, 4], 500, true); await fp; R.door.pivot.rotation.y = 0;
+  let total = null;
+  if (!s.rest) { total = Math.round(s.steps.reduce((a, st) => a + (G.res[st.id]?.score || 0), 0) / s.steps.length * 100); SAVE.best[s.id] = Math.max(total, SAVE.best[s.id] ?? 0); persist(); }
+  const res = G.res, hints = Object.assign({}, G.hints);
+  toCorridor(s.id); G.busy = false; G.leaving = false; await fade(false);
+  if (G.circuit) { if (!s.rest) G.circuit.results[s.id] = { total, res, hints }; G.circuit.i++; return nextCircuit(s.rest ? null : resultHtml(s, total, res, hints, true)); }
+  if (!s.rest) { modal(resultHtml(s, total, res, hints, false)); const r = $("#retry"); if (r) r.onclick = () => { closeModal(); goDoor(s.id); }; }
+}
+function resultHtml(s, total, res, hints, inCircuit) {
+  return `<span class="eyebrow">HASIL STASIUN ${s.no}</span><h2>${esc(s.title)}</h2>
+   <div class="score"><b>${total}%</b><span class="pill ${total >= GAME.pass ? "ok" : "bad"}">${total >= GAME.pass ? "Kompeten" : "Belum kompeten"}</span></div>
+   <p class="small muted">Checklist penguji · batas kompeten ${GAME.pass}%${Object.keys(hints).length ? ` · petunjuk dipakai di ${Object.keys(hints).length} tugas` : ""}</p>
+   <div class="check">${s.steps.map(st => { const r = res[st.id], sc = r ? r.score : 0; return `<div class="ci ${sc >= 1 ? "y" : sc > 0 ? "p" : "n"}"><span class="mk">${sc >= 1 ? "✓" : sc > 0 ? "½" : "✗"}</span><div><b>${esc(st.skill)}${hints[st.id] ? ' <span class="tag">petunjuk</span>' : ""}</b>${r ? `<p class="small">Jawaban Anda: ${esc(r.ans)}</p>` : `<p class="small">Tidak dikerjakan</p>`}<p class="small muted">${st.kind === "input" && sc < 1 ? "Jawaban benar: " + esc(st.answer) + ". " : ""}${esc(st.why)}</p>${st.refs ? `<details><summary class="small">Rujukan</summary><ul class="refs">${refHtml(st.refs)}</ul></details>` : ""}</div></div>`; }).join("")}</div>
+   <details open><summary><b class="small">Daftar pustaka stasiun</b></summary><ul class="refs">${refHtml(s.refs)}</ul></details>
+   <div class="row">${inCircuit ? `<button class="btn pri" id="cont">Lanjut ke stasiun berikutnya</button>` : `<button class="btn pri" data-close>Kembali ke koridor</button><button class="btn" id="retry">Ulangi stasiun ini</button>`}</div>`;
+}
+
+/* ---------- circuit ---------- */
+function startCircuit() { if (G.busy) return; G.circuit = { i: 0, results: {} }; panel(""); hint(""); nextCircuit(null); }
+async function nextCircuit(prevHtml) {
+  const C = G.circuit;
+  if (prevHtml) { G.lockModal = true; modal(prevHtml); await new Promise(r => $("#cont").onclick = r); G.lockModal = false; closeModal(); }
+  while (C.i < STATIONS.length && !STATIONS[C.i].built) { const s = STATIONS[C.i]; modal(`<span class="eyebrow">STASIUN ${s.no}</span><h2>${esc(s.title)}</h2><p class="muted">Belum tersedia di versi ini, dilewati.</p>`); await wait(1300); closeModal(); C.i++; }
+  if (C.i >= STATIONS.length) return circuitSummary();
+  const s = STATIONS[C.i]; panel(`<div class="ph"><span class="eyebrow">SIRKUIT OSCE</span><span class="small muted">${C.i + 1}/10</span></div><p class="small">Menuju ${s.rest ? "ruang istirahat" : "Stasiun " + s.no}…</p>`);
+  goDoor(s.id);
+}
+function circuitSummary() {
+  const C = G.circuit; G.circuit = null; const done = STATIONS.filter(s => C.results[s.id]); const avg = done.length ? Math.round(done.reduce((a, s) => a + C.results[s.id].total, 0) / done.length) : 0;
+  modal(`<span class="eyebrow">REKAP SIRKUIT OSCE</span><h2>Nilai rata-rata ${avg}%</h2><table><tr><th>Stasiun</th><td><b>Skor</b></td></tr>${STATIONS.filter(s => !s.rest).map(s => `<tr><th>${s.no}. ${esc(s.title)}</th><td>${C.results[s.id] ? `${C.results[s.id].total}% ${C.results[s.id].total >= GAME.pass ? "✓" : "✗"}` : '<span class="muted">belum tersedia</span>'}</td></tr>`).join("")}</table>
+  <p class="small muted">${avg >= GAME.pass ? "Rata-rata Anda di atas batas kompeten." : "Ulangi stasiun yang belum kompeten dalam mode Latihan."}</p><div class="row"><button class="btn pri" data-close>Kembali ke koridor</button></div>`);
+}
+
+/* ================= INPUT ================= */
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(); let downAt = null, dragging = null;
+const visDeep = o => { while (o) { if (!o.visible) return false; o = o.parent; } return true; };
+function pick(e) { const r = canvas.getBoundingClientRect(); ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ptr, camera);
+  const hits = ray.intersectObjects(interactives.filter(visDeep), true); if (!hits.length) return null; let o = hits[0].object; while (o && !o.userData.act) o = o.parent; return o; }
+canvas.addEventListener("pointerdown", e => { downAt = [e.clientX, e.clientY]; if ((G.phase === "corridor" || G.phase === "room" || G.phase === "rest") && !G.busy) dragging = { x: e.clientX, y: e.clientY }; });
+addEventListener("pointerup", () => dragging = null);
+canvas.addEventListener("pointermove", e => {
+  if (dragging && !G.busy) { const dx = e.clientX - dragging.x, dy = e.clientY - dragging.y; dragging = { x: e.clientX, y: e.clientY }; const d = camLook.clone().sub(camera.position); const yaw = Math.atan2(d.x, d.z) - dx * 0.006; let pitch = Math.atan2(d.y, Math.hypot(d.x, d.z)) + dy * 0.004; pitch = Math.max(-0.6, Math.min(0.5, pitch)); camLook.set(camera.position.x + Math.sin(yaw) * 4 * Math.cos(pitch), camera.position.y + Math.sin(pitch) * 4, camera.position.z + Math.cos(yaw) * 4 * Math.cos(pitch)); }
+  if (e.pointerType === "mouse") { const o = pick(e); canvas.style.cursor = o && canTap(o.userData.act) ? "pointer" : "default"; } });
+canvas.addEventListener("pointerup", e => { if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 10) return; downAt = null; const o = pick(e); if (o) onTap(o.userData.act); });
+function canTap(a) { if (G.busy || !$("#modal").hidden || !$("#lit").hidden) return false; if (a === "lit") return G.phase === "room" || G.phase === "seated";
+  if (G.phase === "corridor") return a.startsWith("door:") && !G.circuit; if (G.phase === "room") return a === "chair" || a === "exit" || a.startsWith("label:"); if (G.phase === "rest") return a === "exit"; if (G.phase === "seated") return a !== "chair"; return false; }
+async function onTap(a) { if (!canTap(a)) return;
+  if (a === "lit") return openLit();
+  if (a.startsWith("door:")) return goDoor(a.slice(5)); if (a === "chair") return sit(); if (a === "exit") return exitRoom();
+  if (await doAction(a)) return;
+  if (a.startsWith("label:")) return showLabel(a.slice(6)); if (a.startsWith("vial:")) return showVVM(a.slice(5));
+  if (["baku", "sampel", "pipet1", "fase"].includes(a)) return showLabel({ pipet1: "pipet1", fase: "fase" }[a] || a);
+  if (a === "power") return; if (a === "patient") return say(["Saya dengarkan, silakan.", "Iya?", "Saya cuma khawatir sama ginjal saya…"][Math.floor(Math.random() * 3)]); }
+
+/* ================= LOOP ================= */
+let last = performance.now(); const tv = new THREE.Vector3();
+renderer.setAnimationLoop(() => {
+  const now = performance.now(), rdt = (now - last) / 1000, dt = Math.min(0.05, rdt); last = now;
+  for (let i = tweens.length - 1; i >= 0; i--) { const t = tweens[i], k = Math.min(1, (now - t.t0) / t.dur); t.fn(ease(k)); if (k >= 1) { tweens.splice(i, 1); t.res(); } }
+  camera.lookAt(camLook); tickTimer(Math.min(rdt, 1));
+  if (patient && ROOMS.s1.group.visible) { const t = now / 1000, P = patient;
+    P.torso.scale.y = 1 + Math.sin(t * 1.6) * 0.012; P.blinkT -= dt; const bl = P.blinkT < 0.12; if (P.blinkT < 0) P.blinkT = 2 + Math.random() * 3; P.eyes.forEach(e => e.scale.y = bl ? 0.15 : 1);
+    P.mouth.scale.y = P.talking ? 1 + Math.abs(Math.sin(t * 13)) * 1.8 : 1; P.head.rotation.y = Math.sin(t * 0.5) * 0.12 + (P.talking ? Math.sin(t * 2.3) * 0.06 : 0); P.head.rotation.x = P.talking ? Math.sin(t * 3.1) * 0.05 : 0.04;
+    P.brows.forEach((b, i) => b.rotation.z = (i ? -1 : 1) * 0.18 * (G.step < 3 ? 1 : 0.2));
+    P.arms[1].sh.rotation.x = -0.15 - (P.talking ? 0.25 + Math.sin(t * 2.6) * 0.18 : 0); P.arms[1].el.rotation.x = P.talking ? -0.4 + Math.sin(t * 2.6) * 0.2 : 0; }
+  if (S2.running && ROOMS.s2.group.visible) { S2.ds.paddles.forEach(p => p.sh.rotation.y += dt * 5.2); const el = (now - S2.dStart) / 1000 * 60; drawDissThrottle(Math.min(1800, el)); }
+  Object.values(ROOMS).forEach(r => { if (r.group.visible) r.group.userData.hand.rotation.z = -now / 60000 * Math.PI * 2; });
+  if (bubbleTarget) { bubbleTarget.getWorldPosition(tv); tv.y += 0.3; tv.project(camera); const b = $("#bubble"); if (tv.z > 1) b.style.visibility = "hidden"; else { b.style.visibility = "visible"; b.style.left = ((tv.x + 1) / 2 * innerWidth) + "px"; b.style.top = Math.max(70, (1 - tv.y) / 2 * innerHeight) + "px"; } }
+  renderer.render(scene, camera);
+});
+let lastDiss = 0; function drawDissThrottle(t) { if (performance.now() - lastDiss > 250) { lastDiss = performance.now(); drawDiss(true, t); } }
+function fitFov() { camera.aspect = innerWidth / innerHeight; camera.fov = camera.aspect < 1 ? 75 : 62; camera.updateProjectionMatrix(); }
+fitFov(); addEventListener("resize", () => { fitFov(); renderer.setSize(innerWidth, innerHeight); });
+
+/* ================= START & SETTINGS ================= */
+function setSound(on) { AU.sfxOn = on; if (AU.master) AU.master.gain.value = on ? 1 : 0; document.querySelectorAll("[data-snd]").forEach(b => b.setAttribute("aria-pressed", on)); }
+function setVoice(on) { AU.voiceOn = on; if (!on) try { speechSynthesis.cancel(); } catch (e) {} document.querySelectorAll("[data-voice]").forEach(b => b.setAttribute("aria-pressed", on)); }
+document.querySelectorAll("[data-snd]").forEach(b => b.onclick = () => setSound(!AU.sfxOn));
+document.querySelectorAll("[data-voice]").forEach(b => b.onclick = () => setVoice(!AU.voiceOn));
+document.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { G.mode = b.dataset.mode; document.querySelectorAll("[data-mode]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+function openVoice() {
+  loadVoices(); const L = idVoices(); const opt = (role) => `<option value="">Otomatis (terbaik: ${esc(pickVoice(role)?.name || "tidak ada")})</option>` + L.map(v => `<option ${VP[role] === v.name ? "selected" : ""}>${esc(v.name)}</option>`).join("");
+  modal(`<h2>Pengaturan suara</h2>${L.length ? "" : `<div class="hintbox">Perangkat ini belum memiliki suara Bahasa Indonesia, jadi suara terdengar kaku atau berlogat asing.<br><b>Android:</b> Setelan › Sistem › Bahasa › Output text-to-speech › Mesin Google › unduh Bahasa Indonesia.<br><b>Windows:</b> buka di Microsoft Edge (suara Ardi/Gadis Natural) atau Setelan › Waktu & bahasa › Ucapan › tambah Bahasa Indonesia.<br><b>iPhone/iPad:</b> Setelan › Aksesibilitas › Konten Lisan › Suara › Indonesia › Damayanti (Ditingkatkan).</div>`}
+    <label class="fld">Suara pasien<select id="vPat">${opt("patient")}</select></label><button class="btn" id="tPat">Tes suara pasien</button>
+    <label class="fld">Suara pengawas ujian<select id="vPro">${opt("proctor")}</select></label><button class="btn" id="tPro">Tes suara pengawas</button>
+    <label class="fld">Kecepatan bicara <span id="rv">${VP.rate.toFixed(2)}×</span><input type="range" id="vRate" min="0.8" max="1.2" step="0.05" value="${VP.rate}"></label>
+    <p class="small muted">Tips: suara bertanda "Natural", "Online", "Google", atau "Ditingkatkan" terdengar paling alami.</p><div class="row"><button class="btn pri" data-close>Selesai</button></div>`);
+  $("#vPat").onchange = e => { VP.patient = e.target.value; saveVP(); }; $("#vPro").onchange = e => { VP.proctor = e.target.value; saveVP(); };
+  $("#vRate").oninput = e => { VP.rate = +e.target.value; $("#rv").textContent = VP.rate.toFixed(2) + "×"; saveVP(); };
+  $("#tPat").onclick = () => speak("Selamat pagi. Saya Hendra, mau tanya soal obat TB saya, urin saya jadi merah.", null, "patient");
+  $("#tPro").onclick = () => speak("Waktu tersisa tiga menit.", null, "proctor");
+}
+document.querySelectorAll("[data-voiceset]").forEach(b => b.onclick = openVoice);
+$("#hudLit").onclick = openLit;
+$("#hudExit").onclick = () => G.st?.rest ? leave(false) : exitRoom();
+$("#hudHelp").onclick = () => modal(`<h2>Kontrol</h2><ul class="refs"><li>Ketuk pintu untuk membaca soal; pintu terbuka saat bel.</li><li>Ketuk kursi untuk duduk dan memulai tugas.</li><li>Ketuk alat atau obat untuk berinteraksi atau melihat label.</li><li>Geser layar untuk menoleh saat berdiri.</li><li>Keluar lewat pintu di belakang Anda atau tombol Keluar.</li></ul><div class="row"><button class="btn pri" data-close>Tutup</button></div>`);
+function begin(circuit) { $("#intro").hidden = true; actx(); sfx("click"); toCorridor(); if (circuit) setTimeout(startCircuit, 500); }
+$("#startCircuit").onclick = () => begin(true); $("#startFree").onclick = () => begin(false);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#modal").hidden && !G.lockModal) closeModal(); });
+toCorridor(); G.phase = "intro"; panel(""); hint(""); ambience(false);
+window.__osce = { G, onTap, STATIONS, GAME, leave, startCircuit };
+
+</script>
+<script>if("serviceWorker" in navigator){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));}</script>
+</body>
+</html>
